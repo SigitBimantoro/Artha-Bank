@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-// Import file splash_page karena ini halaman pertama yang kita mau munculin
+
 import 'pages/splash_page.dart';
 
 void main() {

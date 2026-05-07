@@ -39,12 +39,12 @@ class _MainPageState extends State<MainPage> {
         backgroundColor: const Color(0xFF4D55CC),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
 
-        // --- TANDAIN JPG: FAB Transaksi ---
+        // --- TANDAIN jpg: FAB Transaksi ---
         child: Image.asset(
-          'assets/fab_transaksi.jpg', // GANTI DENGAN NAMA FILE JPG KAMU
+          'assets/fab_transaksi.jpg', // GANTI DENGAN NAMA FILE jpg KAMU
           width: 28,
           height: 28,
-          // Kalau file JPG belum ada, pakai icon wallet sementara
+          // Kalau file jpg belum ada, pakai icon wallet sementara
           errorBuilder: (context, error, stackTrace) =>
               const Icon(Icons.account_balance_wallet, color: Colors.white),
         ),
@@ -65,14 +65,14 @@ class _MainPageState extends State<MainPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildNavItem(
-                    imagePath: 'assets/nav_home.jpg', // TANDAIN JPG: HOME
+                    imagePath: 'assets/nav_home.jpg', // TANDAIN jpg: HOME
                     fallbackIcon: Icons.home_filled,
                     label: "Home",
                     index: 0,
                   ),
                   _buildNavItem(
                     imagePath:
-                        'assets/nav_tracking.jpg', // TANDAIN JPG: TRACKING
+                        'assets/nav_tracking.jpg', // TANDAIN jpg: TRACKING
                     fallbackIcon: Icons.pie_chart,
                     label: "Tracking",
                     index: 1,
@@ -84,13 +84,13 @@ class _MainPageState extends State<MainPage> {
                 children: [
                   _buildNavItem(
                     imagePath:
-                        'assets/nav_wishlist.jpg', // TANDAIN JPG: WISHLIST
+                        'assets/nav_wishlist.jpg', // TANDAIN jpg: WISHLIST
                     fallbackIcon: Icons.favorite,
                     label: "Wishlist",
                     index: 2,
                   ),
                   _buildNavItem(
-                    imagePath: 'assets/nav_profile.jpg', // TANDAIN JPG: PROFILE
+                    imagePath: 'assets/nav_profile.jpg', // TANDAIN jpg: PROFILE
                     fallbackIcon: Icons.person,
                     label: "Profile",
                     index: 3,
@@ -122,15 +122,15 @@ class _MainPageState extends State<MainPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // --- TANDAIN JPG: Ikon Menu ---
+          // --- TANDAIN jpg: Ikon Menu ---
           Image.asset(
             imagePath,
             width: 24,
             height: 24,
-            // Opsional: Kalau JPG kamu warnanya abu/hitam dan mau diwarnain biru saat aktif, nyalakan color di bawah:
+            // Opsional: Kalau jpg kamu warnanya abu/hitam dan mau diwarnain biru saat aktif, nyalakan color di bawah:
             // color: isActive ? const Color(0xFF4D55CC) : const Color(0xFF444444),
 
-            // Kalau file JPG belum ada, pakai icon bawaan sementara
+            // Kalau file jpg belum ada, pakai icon bawaan sementara
             errorBuilder: (context, error, stackTrace) => Icon(
               fallbackIcon,
               color: isActive
