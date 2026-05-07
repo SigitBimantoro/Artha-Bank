@@ -1,0 +1,10 @@
+# Mengabaikan file hasil compile (build)
+*.exe
+*.out
+*.app
+
+# Mengabaikan folder vendor (jika kamu pakai)
+vendor/
+
+# Mengabaikan file rahasia (PENTING!)
+.env
