@@ -20,5 +20,7 @@ func SetupRoutes(r *gin.Engine, authService *controllers.AuthController, transac
 		protected.POST("/topup", transactionService.TopUpInternal)
 		protected.POST("/logout", authService.LogoutUser)
 		protected.POST("/transfer", transactionService.TransferUang)
+		protected.POST("/payment/pulsa", transactionService.BeliPulsa)
+		protected.POST("/payment/pln", transactionService.BeliTokenListrik)
 	}
 }
