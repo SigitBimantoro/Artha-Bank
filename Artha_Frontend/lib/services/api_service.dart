@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  static const String baseUrl = 'http://192.168.18.7:8080/api';
+  // Pastikan IP ini adalah IPv4 laptopmu, dan HP/Emulator pakai WiFi yang sama
+  static const String baseUrl = 'http://192.168.18.79:8080/api'; 
+
   static Future<Map<String, dynamic>> register({
     required String nama,
     required String email,
@@ -21,6 +23,7 @@ class ApiService {
     );
     return _processResponse(response);
   }
+
   static Future<Map<String, dynamic>> verifyOTP({
     required String email,
     required String kodeOTP,
@@ -35,20 +38,23 @@ class ApiService {
     );
     return _processResponse(response);
   }
+
+  // 🟢 REVISI: Ubah email jadi phoneNumber
   static Future<Map<String, dynamic>> login({
-    required String email,
+    required String phoneNumber, 
     required String password,
   }) async {
     final response = await http.post(
       Uri.parse('$baseUrl/login'),
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({
-        "email": email,
+        "phone_number": phoneNumber, // Sesuai dengan struct Golang
         "password": password,
       }),
     );
     return _processResponse(response);
   }
+
   static Future<Map<String, dynamic>> resendOTP({
     required String email,
   }) async {
@@ -61,6 +67,7 @@ class ApiService {
     );
     return _processResponse(response);
   }
+
   static Map<String, dynamic> _processResponse(http.Response response) {
     if (response.statusCode == 200 || response.statusCode == 201) {
       return {"success": true, "data": jsonDecode(response.body)};

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dashboard/main_page.dart';
 import 'otp_page.dart';
-// import 'services/api_service.dart'; // Mode Demo
+import 'services/api_service.dart'; // Mode Demo
 
 class AuthPage extends StatefulWidget {
   final bool isLoginInitial;
@@ -56,23 +56,58 @@ class _AuthPageState extends State<AuthPage> {
 
   Future<void> _submitData() async {
     FocusScope.of(context).unfocus();
+    
     if (_emailController.text.trim().isEmpty || _passwordController.text.isEmpty) {
       _showError("Form tidak boleh kosong.");
       return;
     }
+
     setState(() => _isLoading = true);
+
     try {
-      await Future.delayed(const Duration(seconds: 1)); // Simulasi
       if (isLogin) {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainPage()));
+        // --- PROSES LOGIN ---
+        // Catatan: Saat mode login, _emailController sebenarnya diisi "Nomor Telepon" oleh user
+        final res = await ApiService.login(
+          phoneNumber: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
+
+        if (res['success']) {
+          // TODO: Simpan token (res['data']['token']) ke SharedPreferences jika perlu
+          if (!mounted) return;
+          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainPage()));
+        } else {
+          _showError(res['message']);
+        }
+
       } else {
-        Navigator.push(context, MaterialPageRoute(builder: (context) => OtpPage(email: _emailController.text.trim())));
+        // --- PROSES REGISTER ---
+        if (_passwordController.text != _confirmPasswordController.text) {
+          _showError("Konfirmasi sandi tidak cocok!");
+          return;
+        }
+
+        final res = await ApiService.register(
+          nama: _nameController.text.trim(),
+          email: _emailController.text.trim(),
+          phoneNumber: _phoneController.text.trim(),
+          password: _passwordController.text,
+        );
+
+        if (res['success']) {
+          if (!mounted) return;
+          Navigator.push(context, MaterialPageRoute(builder: (context) => OtpPage(email: _emailController.text.trim())));
+        } else {
+          _showError(res['message']);
+        }
       }
+    } catch (e) {
+      _showError("Gagal terhubung ke server.");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
-
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), backgroundColor: Colors.red.shade600, behavior: SnackBarBehavior.floating),
@@ -155,7 +190,7 @@ class _AuthPageState extends State<AuthPage> {
                                 children: [
                                   _buildTextField("Konfirmasi kata sandi", "Ulangi kata sandi", controller: _confirmPasswordController, isPassword: true, obscureText: _obscureConfirmPassword, onToggle: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword)),
                                   _buildTextField("Nama lengkap", "Masukkan nama lengkap", controller: _nameController),
-                                  _buildTextField("Nomor telepon aktif", "Masukkan nomor telepon", controller: _phoneController, keyboardType: TextInputType.phone),
+                                  _buildTextField("Nomor telepon", "Masukkan nomor telepon", controller: _phoneController, keyboardType: TextInputType.phone),
                                 ],
                               ),
                             ),
