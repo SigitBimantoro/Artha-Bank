@@ -2,7 +2,10 @@ package controllers
 
 import (
 	"artha/models"
+	"math/rand"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -12,7 +15,6 @@ import (
 type TransactionController struct {
 	DB *gorm.DB
 }
-
 type TopUpReq struct {
 	Amount float64 `json:"amount" binding:"required,gte=10000"`
 }
@@ -21,7 +23,15 @@ type TransferReq struct {
 	Amount        float64 `json:"amount" binding:"required,gt=0"`
 	Notes         string  `json:"notes"`
 }
+type PulsaReq struct {
+	PhoneNumber string  `json:"phone_number" binding:"required"`
+	Amount      float64 `json:"amount" binding:"required,gt=0"`
+}
 
+type PLNReq struct {
+	MeterNumber string  `json:"meter_number" binding:"required"`
+	Amount      float64 `json:"amount" binding:"required,gt=0"`
+}
 // Fungsi Eksekusi Top Up
 func (tc *TransactionController) TopUpInternal(c *gin.Context) {
 	// 1. Ambil UserID dari Middleware JWT (Tidak bisa dipalsukan oleh Hacker)
@@ -171,5 +181,125 @@ func (tc *TransactionController) TransferUang(c *gin.Context) {
 		"message":     "Transfer berhasil diproses!",
 		"sisa_saldo":  senderWallet.Saldo,
 		"penerima":    receiver.Nama,
+	})
+}
+
+// Fungsi Pencetak 20 Digit Token PLN
+func generateTokenPLN() string {
+	// Inisialisasi mesin random berdasarkan waktu saat ini agar angkanya selalu berbeda
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	var token string
+
+	for i := 0; i < 20; i++ {
+		// Tambahkan angka acak 0-9
+		token += strconv.Itoa(r.Intn(10))
+		
+		// Jika sudah 4 angka dan bukan angka terakhir, tambahkan spasi
+		if (i+1)%4 == 0 && i != 19 {
+			token += " "
+		}
+	}
+	return token
+}
+// ==========================================
+// FITUR PEMBELIAN PULSA
+// ==========================================
+func (tc *TransactionController) BeliPulsa(c *gin.Context) {
+	userIDContext, _ := c.Get("userID")
+	userID := userIDContext.(uint)
+
+	var req PulsaReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Nomor HP atau nominal pulsa tidak valid"})
+		return
+	}
+
+	tx := tc.DB.Begin()
+
+	// Kunci & Potong Saldo
+	var wallet models.Wallet
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("user_id = ?", userID).First(&wallet).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengakses dompet"})
+		return
+	}
+
+	if wallet.Saldo < req.Amount {
+		tx.Rollback()
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Maaf, saldo Anda tidak mencukupi"})
+		return
+	}
+
+	wallet.Saldo -= req.Amount
+	tx.Save(&wallet)
+
+	// Catat Transaksi (Penerima = 0 / Sistem)
+	newLog := models.Transaction{
+		TransactionType: "PULSA",
+		SenderID:        userID,
+		ReceiverID:      0, 
+		Amount:          req.Amount,
+		Notes:           "Pembelian Pulsa untuk nomor " + req.PhoneNumber,
+	}
+	tx.Create(&newLog)
+	tx.Commit()
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":    "Pembelian pulsa berhasil!",
+		"sisa_saldo": wallet.Saldo,
+	})
+}
+
+// ==========================================
+// FITUR PEMBELIAN TOKEN LISTRIK (PLN)
+// ==========================================
+func (tc *TransactionController) BeliTokenListrik(c *gin.Context) {
+	userIDContext, _ := c.Get("userID")
+	userID := userIDContext.(uint)
+
+	var req PLNReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Nomor meteran atau nominal tidak valid"})
+		return
+	}
+
+	tx := tc.DB.Begin()
+
+	// Kunci & Potong Saldo
+	var wallet models.Wallet
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("user_id = ?", userID).First(&wallet).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengakses dompet"})
+		return
+	}
+
+	if wallet.Saldo < req.Amount {
+		tx.Rollback()
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Maaf, saldo Anda tidak mencukupi"})
+		return
+	}
+
+	wallet.Saldo -= req.Amount
+	tx.Save(&wallet)
+
+	// Generate 20 Digit Token PLN
+	tokenPLN := generateTokenPLN()
+
+	// Catat Transaksi dan simpan token di Notes
+	newLog := models.Transaction{
+		TransactionType: "PLN",
+		SenderID:        userID,
+		ReceiverID:      0,
+		Amount:          req.Amount,
+		Notes:           "Token Listrik: " + tokenPLN,
+	}
+	tx.Create(&newLog)
+	tx.Commit()
+
+	// Balasan ke Flutter (Mengirimkan token agar bisa ditampilkan di layar besar-besar)
+	c.JSON(http.StatusOK, gin.H{
+		"message":      "Pembelian Token Listrik berhasil!",
+		"token_listrik": tokenPLN,
+		"sisa_saldo":   wallet.Saldo,
 	})
 }
