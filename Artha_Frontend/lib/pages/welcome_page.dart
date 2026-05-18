@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../auth_page.dart'; // Sesuaikan path ini dengan struktur folder kamu
+import '../auth/auth_page.dart'; // Sesuaikan path ini dengan struktur folder kamu
 
 class WelcomePage extends StatelessWidget {
   const WelcomePage({super.key});

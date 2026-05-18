@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'auth_page.dart';
-// Pastikan path import ini sesuai dengan struktur folder kamu
-import 'services/api_service.dart'; 
+import '../services/api_service.dart';
 
 class OtpPage extends StatefulWidget {
   final String email;
@@ -13,7 +12,7 @@ class OtpPage extends StatefulWidget {
 }
 
 class _OtpPageState extends State<OtpPage> {
-  String otpCode = ""; 
+  String otpCode = "";
   int _seconds = 59;
   Timer? _timer;
   bool _isLoading = false;
@@ -47,7 +46,8 @@ class _OtpPageState extends State<OtpPage> {
   }
 
   void _onDelete() {
-    if (otpCode.isNotEmpty) setState(() => otpCode = otpCode.substring(0, otpCode.length - 1));
+    if (otpCode.isNotEmpty)
+      setState(() => otpCode = otpCode.substring(0, otpCode.length - 1));
   }
 
   @override
@@ -59,7 +59,6 @@ class _OtpPageState extends State<OtpPage> {
       body: SafeArea(
         child: Column(
           children: [
-            // --- HEADER ---
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
               child: Stack(
@@ -75,7 +74,11 @@ class _OtpPageState extends State<OtpPage> {
                           color: primaryColor,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.arrow_back, color: Colors.white, size: 22),
+                        child: const Icon(
+                          Icons.arrow_back,
+                          color: Colors.white,
+                          size: 22,
+                        ),
                       ),
                     ),
                   ),
@@ -90,7 +93,6 @@ class _OtpPageState extends State<OtpPage> {
                 ],
               ),
             ),
-
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 30.0),
@@ -107,12 +109,17 @@ class _OtpPageState extends State<OtpPage> {
                           height: 1.5,
                         ),
                         children: [
-                          const TextSpan(text: 'Kode OTP telah dikirimkan ke email '),
+                          const TextSpan(
+                            text: 'Kode OTP telah dikirimkan ke email ',
+                          ),
                           TextSpan(
                             text: widget.email,
                             style: const TextStyle(fontWeight: FontWeight.w900),
                           ),
-                          const TextSpan(text: '. Pastikan juga untuk memeriksa folder spam atau junk Anda.'),
+                          const TextSpan(
+                            text:
+                                '. Pastikan juga untuk memeriksa folder spam atau junk Anda.',
+                          ),
                         ],
                       ),
                     ),
@@ -126,12 +133,12 @@ class _OtpPageState extends State<OtpPage> {
                       ),
                     ),
                     const SizedBox(height: 30),
-
-                    // --- KOTAK OTP RAMPING ---
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: List.generate(6, (index) {
-                        String char = otpCode.length > index ? otpCode[index] : "";
+                        String char = otpCode.length > index
+                            ? otpCode[index]
+                            : "";
                         return Container(
                           width: 48,
                           height: 75,
@@ -163,36 +170,47 @@ class _OtpPageState extends State<OtpPage> {
                       }),
                     ),
                     const SizedBox(height: 60),
-
-                    // --- TOMBOL VERIFIKASI ---
                     SizedBox(
                       width: double.infinity,
                       height: 55,
                       child: ElevatedButton(
-                        onPressed: (otpCode.length == 6 && !_isLoading) ? () async {
-                          setState(() => _isLoading = true);
-                          
-                          // Panggil API Verifikasi
-                          final res = await ApiService.verifyOTP(email: widget.email, kodeOTP: otpCode);
-                          
-                          setState(() => _isLoading = false);
+                        onPressed: (otpCode.length == 6 && !_isLoading)
+                            ? () async {
+                                setState(() => _isLoading = true);
+                                final res = await ApiService.verifyOTP(
+                                  email: widget.email,
+                                  kodeOTP: otpCode,
+                                );
+                                setState(() => _isLoading = false);
 
-                          if (res['success']) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text("Berhasil! Akun aktif, silakan login."), backgroundColor: Colors.green),
-                            );
-                            if (!mounted) return;
-                            Navigator.pushAndRemoveUntil(
-                              context,
-                              MaterialPageRoute(builder: (context) => const AuthPage(isLoginInitial: true)),
-                              (route) => false,
-                            );
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(res['message']), backgroundColor: Colors.red),
-                            );
-                          }
-                        } : null,
+                                if (res['success']) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        "Berhasil! Akun aktif, silakan login.",
+                                      ),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                  if (!mounted) return;
+                                  Navigator.pushAndRemoveUntil(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const AuthPage(isLoginInitial: true),
+                                    ),
+                                    (route) => false,
+                                  );
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(res['message']),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              }
+                            : null,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: primaryColor,
                           shape: RoundedRectangleBorder(
@@ -200,38 +218,66 @@ class _OtpPageState extends State<OtpPage> {
                           ),
                           elevation: 0,
                         ),
-                        child: _isLoading 
-                            ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
-                            : const Text('Verifikasi', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800)),
+                        child: _isLoading
+                            ? const SizedBox(
+                                height: 24,
+                                width: 24,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 3,
+                                ),
+                              )
+                            : const Text(
+                                'Verifikasi',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
                       ),
                     ),
                     const SizedBox(height: 25),
-
-                    // --- TOMBOL KIRIM ULANG ---
                     GestureDetector(
-                      onTap: _seconds == 0 ? () async {
-                        // Panggil API Resend OTP
-                        final res = await ApiService.resendOTP(email: widget.email);
-                        if (res['success']) {
-                          _startTimer(); // Ulangi timer
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text("OTP baru telah dikirim ke emailmu."), backgroundColor: Colors.green),
-                          );
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(res['message']), backgroundColor: Colors.red),
-                          );
-                        }
-                      } : null,
+                      onTap: _seconds == 0
+                          ? () async {
+                              final res = await ApiService.resendOTP(
+                                email: widget.email,
+                              );
+                              if (res['success']) {
+                                _startTimer();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      "OTP baru telah dikirim ke emailmu.",
+                                    ),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(res['message']),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            }
+                          : null,
                       child: Text.rich(
                         TextSpan(
                           text: 'Belum menerima kode? ',
-                          style: const TextStyle(color: Color(0xFF4D55CC), fontSize: 13),
+                          style: const TextStyle(
+                            color: Color(0xFF4D55CC),
+                            fontSize: 13,
+                          ),
                           children: [
                             TextSpan(
                               text: 'Kirim ulang',
                               style: TextStyle(
-                                color: _seconds == 0 ? primaryColor : Colors.grey,
+                                color: _seconds == 0
+                                    ? primaryColor
+                                    : Colors.grey,
                                 fontWeight: FontWeight.w900,
                               ),
                             ),
@@ -243,8 +289,6 @@ class _OtpPageState extends State<OtpPage> {
                 ),
               ),
             ),
-
-            // --- CUSTOM NUMPAD ---
             Container(
               color: const Color(0xFFF2F2F2),
               padding: const EdgeInsets.only(top: 10, bottom: 10),
@@ -266,14 +310,24 @@ class _OtpPageState extends State<OtpPage> {
   Widget _buildNumRow(List<String> values) {
     return Row(
       children: values.map((val) {
-        if (val == 'delete') {
-          return _numButton(const Icon(Icons.backspace_outlined, size: 24), _onDelete);
-        }
-        if (val == '* #') {
-          return _numButton(const Text('* #', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w400)), () {});
-        }
+        if (val == 'delete')
+          return _numButton(
+            const Icon(Icons.backspace_outlined, size: 24),
+            _onDelete,
+          );
+        if (val == '* #')
+          return _numButton(
+            const Text(
+              '* #',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w400),
+            ),
+            () {},
+          );
         return _numButton(
-          Text(val, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w400)),
+          Text(
+            val,
+            style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w400),
+          ),
           () => _onKeyPress(val),
         );
       }).toList(),
@@ -288,7 +342,9 @@ class _OtpPageState extends State<OtpPage> {
           height: 65,
           margin: const EdgeInsets.all(2),
           decoration: BoxDecoration(
-            color: (child is Icon || (child is Text && child.data == '* #')) ? Colors.transparent : Colors.white,
+            color: (child is Icon || (child is Text && child.data == '* #'))
+                ? Colors.transparent
+                : Colors.white,
             borderRadius: BorderRadius.circular(5),
           ),
           alignment: Alignment.center,

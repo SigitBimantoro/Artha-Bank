@@ -53,7 +53,7 @@ class _SplashPageState extends State<SplashPage>
     final totalContentWidth = logoSize + gap + textWidth;
     
     final centerLeftLogo = (screenWidth - logoSize) / 2; 
-   final finalLeftLogo = ((screenWidth - totalContentWidth) / 2) + 50; 
+   final finalLeftLogo = ((screenWidth - totalContentWidth) / 2) + 15; 
     final centerTop = (screenHeight - logoSize) / 2;
 
    
