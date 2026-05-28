@@ -19,6 +19,15 @@ import (
 
 var jwtKey = []byte("artha_secret_key_2026")
 
+type ForgotPasswordReq struct {
+	PhoneNumber string `json:"phone_number" binding:"required"`
+}
+
+type ResetPasswordReq struct {
+	PhoneNumber string `json:"phone_number" binding:"required"`
+	OTP         string `json:"otp" binding:"required"`
+	NewPassword string `json:"new_password" binding:"required,min=6"`
+}
 
 type AuthController struct {
 	DB *gorm.DB
@@ -42,6 +51,9 @@ type VerifyOTPRequest struct {
 
 type ResendOTPRequest struct {
 	Email string `json:"email" binding:"required,email"`
+}
+type SetPinReq struct {
+	Pin string `json:"pin" binding:"required,len=6,numeric"`
 }
 func (ac *AuthController)RegisterUser(c *gin.Context) {
 	var req RegisterRequest
@@ -173,13 +185,18 @@ func (ac *AuthController)LoginUser(c *gin.Context) {
 	}
 	ac.DB.Create(&newSession)
 
+	hasPin := false
+	if user.Pin != "" {
+		hasPin = true
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Login successful!",
 		"token":   token,
+		"has_pin": hasPin, // 👈 INDIKATOR UNTUK FLUTTER
 		"user": gin.H{
-			"user_id": user.UserID,
-			"nama":    user.Nama,
-			"email":   user.Email,
+			"user_id":      user.UserID,
+			"nama":         user.Nama,
 			"phone_number": user.PhoneNumber,
 		},
 	})
@@ -254,5 +271,126 @@ func (ac *AuthController) LogoutUser(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Berhasil logout. Sesi Anda telah diakhiri.",
+	})
+}
+func (ac *AuthController) SetUserPin(c *gin.Context) {
+	// 1. Ambil ID User dari Satpam JWT
+	userIDContext, _ := c.Get("userID")
+	userID := userIDContext.(uint)
+
+	// 2. Tangkap PIN dari Flutter
+	var req SetPinReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "PIN harus terdiri dari 6 digit angka."})
+		return
+	}
+
+	// 3. Enkripsi (Hash) PIN menggunakan bcrypt agar aman
+	hashedPin, err := bcrypt.GenerateFromPassword([]byte(req.Pin), bcrypt.DefaultCost)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengamankan PIN"})
+		return
+	}
+
+	// 4. Simpan ke Database
+	if err := ac.DB.Model(&models.User{}).Where("user_id = ?", userID).Update("pin", string(hashedPin)).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan PIN ke database"})
+		return
+	}
+
+	// 5. Beri balasan sukses
+	c.JSON(http.StatusOK, gin.H{
+		"message": "PIN keamanan berhasil dibuat! Anda sekarang bisa melakukan transaksi.",
+	})
+}
+
+func (ac *AuthController) RequestForgotPassword(c *gin.Context) {
+	var req ForgotPasswordReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Nomor HP wajib diisi."})
+		return
+	}
+
+	// Cek apakah nomor HP terdaftar
+	var user models.User
+	if err := ac.DB.Where("phone_number = ?", req.PhoneNumber).First(&user).Error; err != nil {
+		// Trik Keamanan: Jangan beritahu hacker apakah nomor ini terdaftar atau tidak.
+		// Tetap beri pesan sukses seolah-olah OTP dikirim.
+		c.JSON(http.StatusOK, gin.H{"message": "Jika nomor terdaftar, OTP instruksi reset password telah dikirim."})
+		return
+	}
+
+	// Generate OTP (Contoh statis "1234" untuk testing, di dunia nyata gunakan math/rand)
+	kodeOTP := fmt.Sprintf("%06d", rand.Intn(1000000))
+	waktuExpired := time.Now().UTC().Add(3 * time.Minute)
+
+	newOtp := models.Otp{
+		UserID:    user.UserID,
+		Kode:      kodeOTP,
+		ExpiredAt: waktuExpired,
+	}
+	ac.DB.Create(&newOtp)
+
+	err := services.KirimEmailOTP(user.Email, kodeOTP)
+	if err != nil {
+		fmt.Println("[ERROR] Gagal mengirim email:", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengirim OTP ke email Anda."})
+		return
+	}
+
+	fmt.Printf("[SYSTEM] Sukses mengirim OTP Lupa Password %s ke email %s\n", kodeOTP, user.Email)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Jika nomor terdaftar, OTP instruksi reset password telah dikirim.",
+	})
+}
+
+func (ac *AuthController) ResetPassword(c *gin.Context) {
+	var req ResetPasswordReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Data tidak lengkap. Pastikan Nomor HP, OTP, dan Password Baru diisi."})
+		return
+	}
+
+	// Cari User
+	var user models.User
+	if err := ac.DB.Where("phone_number = ?", req.PhoneNumber).First(&user).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Data tidak valid."})
+		return
+	}
+
+	// Cek OTP apakah valid dan masih ACTIVE
+	var otpData models.Otp
+	if err := ac.DB.Where("user_id = ? AND kode = ? AND status = ?", user.UserID, req.OTP, "PENDING").First(&otpData).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "OTP salah atau sudah kedaluwarsa."})
+		return
+	}
+
+	// Hash Password Baru
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengamankan password baru."})
+		return
+	}
+
+	// Update Password User & Matikan OTP (Ubah jadi EXPIRED/USED)
+	tx := ac.DB.Begin()
+	
+	if err := tx.Model(&user).Update("password", string(hashedPassword)).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengubah password."})
+		return
+	}
+
+	if err := tx.Model(&otpData).Update("status", "USED").Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses OTP."})
+		return
+	}
+
+	tx.Commit()
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Password berhasil diubah! Silakan login dengan password baru Anda.",
 	})
 }

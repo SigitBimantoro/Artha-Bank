@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -70,6 +71,53 @@ func CekTiketJWT(db *gorm.DB) gin.HandlerFunc {
 
 		// SUKSES!
 		c.Set("userID", session.UserID)
+		c.Next()
+	}
+}
+
+func CekPIN(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// 1. Ambil User ID dari Satpam Pertama (JWT)
+		userIDContext, exists := c.Get("userID")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+			c.Abort()
+			return
+		}
+		userID := userIDContext.(uint)
+
+		// 2. Ambil PIN dari Header (Teman Flutter-mu harus mengirim header "X-PIN")
+		pinHeader := c.GetHeader("X-PIN")
+		if pinHeader == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "PIN Keamanan (X-PIN) wajib disertakan untuk transaksi ini."})
+			c.Abort()
+			return
+		}
+
+		// 3. Cari User di Database untuk mengambil PIN yang di-hash
+		var user models.User
+		if err := db.Select("pin").Where("user_id = ?", userID).First(&user).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memverifikasi user"})
+			c.Abort()
+			return
+		}
+
+		// 4. Pastikan User sudah pernah membuat PIN
+		if user.Pin == "" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Anda belum mengatur PIN Keamanan. Silakan buat PIN terlebih dahulu."})
+			c.Abort()
+			return
+		}
+
+		// 5. Bandingkan PIN dari Header dengan PIN di Database (Pakai bcrypt)
+		err := bcrypt.CompareHashAndPassword([]byte(user.Pin), []byte(pinHeader))
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "PIN yang Anda masukkan salah!"})
+			c.Abort()
+			return
+		}
+
+		// SUKSES! PIN Benar, silakan lanjut ke fitur Transfer/Pembayaran
 		c.Next()
 	}
 }
