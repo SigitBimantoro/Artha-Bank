@@ -7,6 +7,7 @@ type User struct {
 	Nama       string    `gorm:"type:varchar(100);not null;column:nama" json:"nama"`
 	Email      string    `gorm:"type:varchar(100);uniqueIndex:users_email_key;not null;column:email" json:"email"`
 	Password   string    `gorm:"type:varchar(255);not null;column:password" json:"-"`
+	Pin      	 string 	 `gorm:"type:varchar(255)" json:"-"`
 	PhoneNumber string	 `gorm:"type:varchar(255);uniqueIndex:user_phone_key;not null;column:phone_number" json:"phone_number"`
 	IsVerified bool      `gorm:"default:false;column:is_verified" json:"is_verified"`
 	CreatedAt  time.Time `gorm:"column:created_at" json:"created_at"`
