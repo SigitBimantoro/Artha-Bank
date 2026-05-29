@@ -8,7 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func SetupRoutes(r *gin.Engine, authService *controllers.AuthController, transactionService *controllers.TransactionController) {
+func SetupRoutes(r *gin.Engine, authService *controllers.AuthController, transactionService *controllers.TransactionController, historyService *controllers.HistoryController) {
 	api := r.Group("/api")
 		api.POST("/register", authService.RegisterUser)
 		api.POST("/verify-otp", authService.VerifyOTP)
@@ -25,8 +25,10 @@ func SetupRoutes(r *gin.Engine, authService *controllers.AuthController, transac
 		protected.POST("/payment/pulsa", middlewares.CekPIN(config.DB), transactionService.BeliPulsa)
 		protected.POST("/payment/pln", middlewares.CekPIN(config.DB), transactionService.BeliTokenListrik)
 		protected.POST("/set-pin", authService.SetUserPin)
-		protected.GET("/history", transactionService.GetRiwayatTransaksi)
-		protected.GET("/history/summary", transactionService.GetRingkasanTransaksi)
+		protected.POST("/verify-password", authService.VerifyPassword)
+		protected.POST("/change-pin", authService.ChangePin)
+		protected.GET("/history", historyService.GetRiwayatTransaksi)
+		protected.GET("/history/summary", historyService.GetTrackingKeuangan)
 		
 	}
 }

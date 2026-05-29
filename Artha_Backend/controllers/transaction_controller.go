@@ -16,7 +16,8 @@ type TransactionController struct {
 	DB *gorm.DB
 }
 type TopUpReq struct {
-	Amount float64 `json:"amount" binding:"required,gte=10000"`
+	Amount float64 `json:"amount" binding:"required,min=10000"`
+	Metode string  `json:"metode" binding:"required"` // Contoh isinya: "Indomaret", "BCA", "Alfamart"
 }
 type TransferReq struct {
 	ReceiverPhone string  `json:"receiver_phone" binding:"required"`
@@ -24,7 +25,7 @@ type TransferReq struct {
 	Notes         string  `json:"notes"`
 }
 type PulsaReq struct {
-	PhoneNumber string  `json:"phone_number" binding:"required"`
+	PhoneNumber string  `json:"phone_number" binding:"required,numeric,min=10,max=13"`
 	Amount      float64 `json:"amount" binding:"required,gt=0"`
 }
 
@@ -34,21 +35,21 @@ type PLNReq struct {
 }
 // Fungsi Eksekusi Top Up
 func (tc *TransactionController) TopUpInternal(c *gin.Context) {
-	// 1. Ambil UserID dari Middleware JWT (Tidak bisa dipalsukan oleh Hacker)
+	// 1. Ambil UserID dari Middleware JWT
 	userIDContext, _ := c.Get("userID")
 	userID := userIDContext.(uint)
 
-	// 2. Tangkap JSON Request (Jumlah Top Up)
+	// 2. Tangkap JSON Request (Jumlah Top Up & Metode)
 	var req TopUpReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Format jumlah saldo salah. Pastikan amount lebih dari 10000."})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Format salah. Pastikan amount minimal 10.000 dan metode pengisian dipilih."})
 		return
 	}
 
-	// 3. Mulai Transaksi Database (Mencegah data corrupt jika internet putus)
+	// 3. Mulai Transaksi Database
 	tx := tc.DB.Begin()
 
-	// 4. Cari Dompet User & Kunci Row-nya (Menghindari Double Top-Up bersamaan)
+	// 4. Cari Dompet User & Kunci Row-nya
 	var dompet models.Wallet
 	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("user_id = ?", userID).First(&dompet).Error; err != nil {
 		tx.Rollback()
@@ -64,13 +65,18 @@ func (tc *TransactionController) TopUpInternal(c *gin.Context) {
 		return
 	}
 
-	// 6. Catat ke Buku Mutasi (Sender = 0, Receiver = UserID)
+	// ==========================================
+	// 6. CATAT KE BUKU MUTASI DENGAN NAMA METODE
+	// ==========================================
+	// Kita gabungkan kata "Top Up via " dengan nama metode yang dikirim Flutter
+	catatanTopUp := "Top Up via " + req.Metode
+
 	newLog := models.Transaction{
 		TransactionType: "TOPUP",
-		SenderID:        0,       // 0 adalah identitas Sistem Artha / Bank
+		SenderID:        0, 
 		ReceiverID:      userID,
 		Amount:          req.Amount,
-		Notes:           "Top Up Saldo Internal Artha",
+		Notes:           catatanTopUp, // 👈 Hasilnya: "Top Up via Indomaret"
 	}
 	
 	if err := tx.Create(&newLog).Error; err != nil {
@@ -84,7 +90,8 @@ func (tc *TransactionController) TopUpInternal(c *gin.Context) {
 
 	// 8. Berikan Balasan ke Flutter
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Top up berhasil diproses", 
+		"message":        "Top up berhasil diproses", 
+		"metode":         req.Metode,
 		"saldo_sekarang": dompet.Saldo,
 	})
 }
@@ -301,105 +308,5 @@ func (tc *TransactionController) BeliTokenListrik(c *gin.Context) {
 		"message":      "Pembelian Token Listrik berhasil!",
 		"token_listrik": tokenPLN,
 		"sisa_saldo":   wallet.Saldo,
-	})
-}
-// ==========================================
-// FITUR RIWAYAT TRANSAKSI (MUTASI)
-// ==========================================
-func (tc *TransactionController) GetRiwayatTransaksi(c *gin.Context) {
-	// 1. Ambil ID User yang sedang login dari Satpam JWT
-	userIDContext, _ := c.Get("userID")
-	userID := userIDContext.(uint)
-
-	// 2. Siapkan keranjang kosong untuk menampung banyak data transaksi
-	var riwayat []models.Transaction
-
-	// 3. Query ke Database: Cari saat dia jadi Pengirim ATAU Penerima
-	// Order("created_at desc") memastikan data terbaru ada di paling atas
-	if err := tc.DB.Where("sender_id = ? OR receiver_id = ?", userID, userID).
-		Order("created_at desc").
-		Find(&riwayat).Error; err != nil {
-		
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data riwayat transaksi"})
-		return
-	}
-
-	// 4. (Opsional tapi keren) Mempercantik balasan untuk Flutter
-	// Kita bantu Flutter menentukan apakah ini uang masuk atau keluar
-	var formatRiwayat []gin.H
-	for _, trx := range riwayat {
-		tipeMutasi := "KELUAR"
-		if trx.ReceiverID == userID {
-			tipeMutasi = "MASUK" // Jika dia penerimanya, berarti uang masuk
-		}
-
-		formatRiwayat = append(formatRiwayat, gin.H{
-			"transaction_id":   trx.TransactionID,
-			"transaction_type": trx.TransactionType,
-			"mutasi":           tipeMutasi, // "MASUK" atau "KELUAR"
-			"amount":           trx.Amount,
-			"notes":            trx.Notes,
-			"tanggal":          trx.CreatedAt.Format("02 Jan 2006, 15:04 WIB"), // Format rapi
-		})
-	}
-
-	// 5. Kirim datanya ke Flutter/Postman
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Berhasil mengambil riwayat transaksi",
-		"total":   len(riwayat),
-		"data":    formatRiwayat,
-	})
-}
-
-// ==========================================
-// FITUR RINGKASAN KEUANGAN (DASHBOARD)
-// ==========================================
-func (tc *TransactionController) GetRingkasanTransaksi(c *gin.Context) {
-	userIDContext, _ := c.Get("userID")
-	userID := userIDContext.(uint)
-
-	// 1. Tangkap parameter dari URL (contoh: ?period=weekly). Default-nya "monthly"
-	period := c.DefaultQuery("period", "monthly")
-
-	var startDate time.Time
-	now := time.Now().UTC()
-
-	// 2. Tentukan batas waktu mundur berdasarkan pilihan
-	switch period {
-	case "weekly":
-		startDate = now.AddDate(0, 0, -7) // Mundur 7 hari
-	case "monthly":
-		startDate = now.AddDate(0, -1, 0) // Mundur 1 bulan
-	case "yearly":
-		startDate = now.AddDate(-1, 0, 0) // Mundur 1 tahun
-	default:
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Periode tidak valid. Gunakan: weekly, monthly, atau yearly"})
-		return
-	}
-
-	// 3. Minta Database menghitung Total Pemasukan (Saat user jadi Receiver)
-	// COALESCE digunakan agar jika belum ada transaksi, hasilnya 0 (bukan error NULL)
-	var totalPemasukan float64
-	tc.DB.Model(&models.Transaction{}).
-		Where("receiver_id = ? AND created_at >= ?", userID, startDate).
-		Select("COALESCE(SUM(amount), 0)").
-		Scan(&totalPemasukan)
-
-	// 4. Minta Database menghitung Total Pengeluaran (Saat user jadi Sender)
-	var totalPengeluaran float64
-	tc.DB.Model(&models.Transaction{}).
-		Where("sender_id = ? AND created_at >= ?", userID, startDate).
-		Select("COALESCE(SUM(amount), 0)").
-		Scan(&totalPengeluaran)
-
-	// 5. Kirim balasan ke Flutter
-	c.JSON(http.StatusOK, gin.H{
-		"message":      "Berhasil mengambil ringkasan keuangan",
-		"periode_pilih": period,
-		"dari_tanggal":  startDate.Format("02 Jan 2006"),
-		"sampai_tanggal": now.Format("02 Jan 2006"),
-		"pemasukan":    totalPemasukan,
-		"pengeluaran":  totalPengeluaran,
-		"selisih":      totalPemasukan - totalPengeluaran, // Tambahan ekstra agar teman Flutter-mu makin senang!
 	})
 }
