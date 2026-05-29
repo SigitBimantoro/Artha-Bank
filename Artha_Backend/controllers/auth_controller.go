@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"artha/services"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -22,45 +24,100 @@ var jwtKey = []byte("artha_secret_key_2026")
 type ForgotPasswordReq struct {
 	PhoneNumber string `json:"phone_number" binding:"required"`
 }
-
 type ResetPasswordReq struct {
 	PhoneNumber string `json:"phone_number" binding:"required"`
 	OTP         string `json:"otp" binding:"required"`
 	NewPassword string `json:"new_password" binding:"required,min=6"`
 }
-
 type AuthController struct {
 	DB *gorm.DB
 }
 type RegisterRequest struct {
 	Nama     string `json:"nama" binding:"required"`
 	Email    string `json:"email" binding:"required,email"`
-	PhoneNumber string	`json:"phone_number" binding:"required"`
+	PhoneNumber string	`json:"phone_number" binding:"required,numeric,min=10,max=13"`
 	Password string `json:"password" binding:"required,min=6"`
 }
-
 type LoginRequest struct {
-	PhoneNumber    string `json:"phone_number" binding:"required"`
-	Password string `json:"password" binding:"required"`
+	PhoneNumber string	`json:"phone_number" binding:"required,numeric,min=10,max=13"`
+	Password string `json:"password" binding:"required,min=6"`
 }
-
 type VerifyOTPRequest struct {
 	Email string `json:"email" binding:"required,email"`
 	Kode  string `json:"kode" binding:"required,len=6"`
 }
-
+type VerifyPasswordReq struct {
+	Password string `json:"password" binding:"required"`
+}
 type ResendOTPRequest struct {
 	Email string `json:"email" binding:"required,email"`
 }
 type SetPinReq struct {
 	Pin string `json:"pin" binding:"required,len=6,numeric"`
 }
+// Struct untuk Request Ganti PIN
+type ChangePinReq struct {
+	Password      string `json:"password" binding:"required"`
+	NewPin        string `json:"new_pin" binding:"required,numeric,len=6"`
+	ConfirmNewPin string `json:"confirm_new_pin" binding:"required,numeric,len=6"`
+}
 func (ac *AuthController)RegisterUser(c *gin.Context) {
 	var req RegisterRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		fmt.Println("1", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err})
+		
+		// Cek apakah errornya berasal dari tag binding (required, min, dll)
+		if validationErrors, ok := err.(validator.ValidationErrors); ok {
+			// Kita ambil error yang PERTAMA kali ditemukan saja
+			firstError := validationErrors[0]
+			
+			var pesanError string
+			polaNama := regexp.MustCompile(`^[a-zA-Z\s]+$`)
+			// Bedah berdasarkan nama kolom (Field) dan aturannya (Tag)
+			switch firstError.Field() {
+			case "Nama":
+				if firstError.Tag() == "required" {
+					pesanError = "Nama tidak boleh kosong."
+				} else if !polaNama.MatchString(req.Nama){
+					pesanError = "Nama tidak valid."
+				}
+			case "PhoneNumber":
+				if firstError.Tag() == "required" {
+					pesanError = "Nomor HP wajib diisi."
+				} else if firstError.Tag() == "numeric" {
+					pesanError = "Nomor HP tidak valid, hanya boleh berisi angka."
+				} else if firstError.Tag() == "min" || firstError.Tag() == "max" {
+					pesanError = "Nomor HP harus antara 10 hingga 13 angka."
+				}
+			case "Password":
+				if firstError.Tag() == "required" {
+					pesanError = "Password tidak boleh kosong."
+				} else if firstError.Tag() == "min" {
+					pesanError = "Password terlalu pendek, minimal 8 karakter."
+				}
+			case "Email":
+				if firstError.Tag() == "required" {
+					pesanError = "Email tidak boleh kosong."
+				} else{
+					pesanError = "Email Tidak Valid"
+				}
+			default:
+				pesanError = "Data tidak valid pada kolom " + firstError.Field()
+			}
+			
+			// Kirim 1 pesan spesifik ke Flutter
+			c.JSON(http.StatusBadRequest, gin.H{"error": pesanError})
+			return
+		}
+
+		// Jika errornya karena format JSON-nya berantakan / bukan dari validator
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Format data tidak sesuai."})
+		return
+	}
+
+	polaNama := regexp.MustCompile(`^[a-zA-Z\s]+$`)
+	if !polaNama.MatchString(req.Nama) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Nama tidak valid."})
 		return
 	}
 
@@ -144,10 +201,35 @@ func (ac *AuthController)LoginUser(c *gin.Context) {
 	var req LoginRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "incomplete data"})
+		
+		if validationErrors, ok := err.(validator.ValidationErrors); ok {
+			firstError := validationErrors[0]
+			var pesanError string
+			
+			switch firstError.Field() {
+			case "PhoneNumber":
+				if firstError.Tag() == "required" {
+					pesanError = "Nomor HP tidak boleh kosong."
+				} else if firstError.Tag() == "numeric" {
+					pesanError = "Nomor HP tidak valid."
+				} else if firstError.Tag() == "min" || firstError.Tag() == "max" {
+					pesanError = "Nomor HP harus antara 10 hingga 13 angka."
+				}
+			case "Password":
+				if firstError.Tag() == "required" {
+					pesanError = "Password tidak boleh kosong."
+				}
+			default:
+				pesanError = "Data tidak valid pada " + firstError.Field()
+			}
+			
+			c.JSON(http.StatusBadRequest, gin.H{"error": pesanError})
+			return
+		}
+
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Format data tidak sesuai."})
 		return
 	}
-
 	var user models.User
 	result := ac.DB.Where("phone_number = ?", req.PhoneNumber).First(&user)
 	
@@ -392,5 +474,104 @@ func (ac *AuthController) ResetPassword(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Password berhasil diubah! Silakan login dengan password baru Anda.",
+	})
+}
+
+
+// ==========================================
+// FITUR CEK PASSWORD (UNTUK PAGE 1 GANTI PIN)
+// ==========================================
+func (ac *AuthController) VerifyPassword(c *gin.Context) {
+	// 1. Ambil ID User dari Satpam JWT
+	userIDContext, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid."})
+		return
+	}
+	userID := userIDContext.(uint)
+
+	// 2. Tangkap password dari Flutter
+	var req VerifyPasswordReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Password wajib diisi."})
+		return
+	}
+
+	// 3. Cari user di database
+	var user models.User
+	if err := ac.DB.First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "User tidak ditemukan."})
+		return
+	}
+
+	// 4. Bandingkan passwordnya
+	err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Password yang Anda masukkan salah!"})
+		return
+	}
+
+	// 5. Jika benar, beri lampu hijau ke Flutter untuk pindah halaman!
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Password benar, silakan lanjut masukkan PIN.",
+	})
+}
+// ==========================================
+// FITUR GANTI PIN KEAMANAN
+// ==========================================
+func (ac *AuthController) ChangePin(c *gin.Context) {
+	// 1. Ambil ID User dari Satpam JWT
+	userIDContext, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid, silakan login kembali."})
+		return
+	}
+	userID := userIDContext.(uint)
+
+	var req ChangePinReq
+
+	// 2. Tangkap JSON dan berikan pesan error spesifik jika format salah
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Pastikan semua kolom terisi dan PIN berupa 6 digit angka."})
+		return
+	}
+
+	// 3. Pastikan New Pin dan Confirm New Pin SAMA PERSIS
+	if req.NewPin != req.ConfirmNewPin {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "PIN baru dan Konfirmasi PIN tidak cocok!"})
+		return
+	}
+
+	// 4. Cari data user di database berdasarkan ID dari JWT
+	var user models.User
+	if err := ac.DB.First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menemukan data user."})
+		return
+	}
+
+	// 5. VERIFIKASI PASSWORD (Cek apakah yang pegang HP ini benar-benar pemilik asli)
+	err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
+	if err != nil {
+		// Jika password salah, tolak prosesnya!
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Password yang Anda masukkan salah!"})
+		return
+	}
+
+	// 6. Jika Password benar, Enkripsi (Hash) PIN yang baru
+	hashedNewPin, err := bcrypt.GenerateFromPassword([]byte(req.NewPin), bcrypt.DefaultCost)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengamankan PIN baru."})
+		return
+	}
+
+	// 7. Simpan PIN baru ke Database
+	if err := ac.DB.Model(&user).Update("pin", string(hashedNewPin)).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan PIN baru ke database."})
+		return
+	}
+
+	// 8. Beri balasan sukses!
+	c.JSON(http.StatusOK, gin.H{
+		"message": "PIN Keamanan berhasil diubah!",
 	})
 }

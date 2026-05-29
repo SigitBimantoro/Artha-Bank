@@ -16,7 +16,8 @@ func main() {
 		DB: config.DB,
 	}
 	transactionController := &controllers.TransactionController{DB: config.DB}
+	historyController := &controllers.HistoryController{DB: config.DB}
 	r := gin.Default()
-	routes.SetupRoutes(r, authController, transactionController)
+	routes.SetupRoutes(r, authController, transactionController, historyController)
 	r.Run("0.0.0.0:8080")
 }
