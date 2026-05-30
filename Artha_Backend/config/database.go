@@ -20,7 +20,7 @@ func ConnectDB() {
 		log.Fatal("failed to connect to the database: ", err)
 	}
 
-	err = DB.AutoMigrate(&models.User{}, &models.Otp{}, &models.AuthSession{}, &models.Wallet{}, &models.Transaction{})
+	err = DB.AutoMigrate(&models.User{}, &models.Otp{}, &models.AuthSession{}, &models.Wallet{}, &models.Transaction{}, &models.Saving{})
 	if err != nil {
 		log.Fatal("Error:", err)
 	}
