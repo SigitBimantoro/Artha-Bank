@@ -22,10 +22,10 @@ import (
 var jwtKey = []byte("artha_secret_key_2026")
 
 type ForgotPasswordReq struct {
-	PhoneNumber string `json:"phone_number" binding:"required"`
+	Email string `json:"email" binding:"required,email"`
 }
 type ResetPasswordReq struct {
-	PhoneNumber string `json:"phone_number" binding:"required"`
+	Email       string `json:"email" binding:"required,email"`
 	OTP         string `json:"otp" binding:"required"`
 	NewPassword string `json:"new_password" binding:"required,min=6"`
 }
@@ -389,16 +389,15 @@ func (ac *AuthController) SetUserPin(c *gin.Context) {
 func (ac *AuthController) RequestForgotPassword(c *gin.Context) {
 	var req ForgotPasswordReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Nomor HP wajib diisi."})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Format email tidak valid atau kosong."})
 		return
 	}
 
 	// Cek apakah nomor HP terdaftar
 	var user models.User
-	if err := ac.DB.Where("phone_number = ?", req.PhoneNumber).First(&user).Error; err != nil {
-		// Trik Keamanan: Jangan beritahu hacker apakah nomor ini terdaftar atau tidak.
-		// Tetap beri pesan sukses seolah-olah OTP dikirim.
-		c.JSON(http.StatusOK, gin.H{"message": "Jika nomor terdaftar, OTP instruksi reset password telah dikirim."})
+	if err := ac.DB.Where("email = ?", req.Email).First(&user).Error; err != nil {
+		// Trik Keamanan: Tetap beri pesan sukses seolah-olah OTP dikirim
+		c.JSON(http.StatusOK, gin.H{"message": "Jika email terdaftar, OTP instruksi reset password telah dikirim."})
 		return
 	}
 
@@ -423,20 +422,20 @@ func (ac *AuthController) RequestForgotPassword(c *gin.Context) {
 	fmt.Printf("[SYSTEM] Sukses mengirim OTP Lupa Password %s ke email %s\n", kodeOTP, user.Email)
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Jika nomor terdaftar, OTP instruksi reset password telah dikirim.",
+		"message": "Jika email terdaftar, OTP instruksi reset password telah dikirim.",
 	})
 }
 
 func (ac *AuthController) ResetPassword(c *gin.Context) {
 	var req ResetPasswordReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Data tidak lengkap. Pastikan Nomor HP, OTP, dan Password Baru diisi."})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Data tidak lengkap. Pastikan Email, OTP, dan Password Baru diisi dengan benar."})
 		return
 	}
 
 	// Cari User
 	var user models.User
-	if err := ac.DB.Where("phone_number = ?", req.PhoneNumber).First(&user).Error; err != nil {
+	if err := ac.DB.Where("email = ?", req.Email).First(&user).Error; err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Data tidak valid."})
 		return
 	}
