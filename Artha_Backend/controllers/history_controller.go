@@ -192,3 +192,108 @@ func (hc *HistoryController) GetTrackingKeuangan(c *gin.Context) {
 		"bar_chart":         barChart,
 	})
 }
+
+func (hc *HistoryController) GetRiwayatTransferKeluar(c *gin.Context) {
+	// 1. Ambil ID User dari Satpam JWT
+	userIDContext, _ := c.Get("userID")
+	userID := userIDContext.(uint)
+
+	// Tangkap parameter limit (opsional)
+	limitStr := c.Query("limit")
+	limitPencarian, _ := strconv.Atoi(limitStr)
+
+	// ==============================================================
+	// BAGIAN A: MENCARI 3 KONTAK TERAKHIR (Unik, tidak boleh ganda)
+	// ==============================================================
+	type RecentReceiver struct {
+		ReceiverID uint
+	}
+	var recentIDs []RecentReceiver
+
+	// Query Sakti: Kelompokkan berdasarkan penerima, ambil yang paling baru, batasi 3.
+	hc.DB.Model(&models.Transaction{}).
+		Select("receiver_id").
+		Where("sender_id = ? AND transaction_type = ?", userID, "TRANSFER").
+		Group("receiver_id").
+		Order("MAX(created_at) DESC").
+		Limit(3).
+		Scan(&recentIDs)
+
+	// Tarik nama dan nomor HP untuk 3 orang tersebut
+	var recentContacts []gin.H
+	for _, rec := range recentIDs {
+		var u models.User
+		// Cukup select nama dan nomor hp agar ringan
+		hc.DB.Select("nama, phone_number").Where("user_id = ?", rec.ReceiverID).First(&u)
+		recentContacts = append(recentContacts, gin.H{
+			"nama":         u.Nama,
+			"phone_number": u.PhoneNumber,
+		})
+	}
+
+	// Jika kosong, pastikan mengirim array kosong [] bukan null
+	if recentContacts == nil {
+		recentContacts = []gin.H{}
+	}
+
+	// ==============================================================
+	// BAGIAN B: MENCARI FULL RIWAYAT TRANSFER KELUAR
+	// ==============================================================
+	var riwayat []models.Transaction
+	query := hc.DB.Where("sender_id = ? AND transaction_type = ?", userID, "TRANSFER").
+		Order("created_at desc")
+
+	// Pasang limit jika ada
+	if limitPencarian > 0 {
+		query = query.Limit(limitPencarian)
+	}
+	query.Find(&riwayat)
+
+	// Trik Backend Pro: Hindari mengambil data user satu per satu di dalam loop (N+1 Problem).
+	// Kita kumpulkan dulu semua ID penerimanya:
+	var receiverIDs []uint
+	for _, trx := range riwayat {
+		receiverIDs = append(receiverIDs, trx.ReceiverID)
+	}
+
+	// Tarik SEMUA data penerima dalam 1x pencarian database
+	var receivers []models.User
+	if len(receiverIDs) > 0 {
+		hc.DB.Select("user_id, nama, phone_number").Where("user_id IN ?", receiverIDs).Find(&receivers)
+	}
+
+	// Buat Kamus/Map agar cepat dicari
+	mapReceiver := make(map[uint]models.User)
+	for _, r := range receivers {
+		mapReceiver[r.UserID] = r
+	}
+
+	// Rangkai data JSON untuk Flutter
+	var formatRiwayat []gin.H
+	for _, trx := range riwayat {
+		penerima := mapReceiver[trx.ReceiverID] // Ambil dari kamus
+
+		formatRiwayat = append(formatRiwayat, gin.H{
+			"transaction_id": trx.TransactionID,
+			"nama_penerima":  penerima.Nama,
+			"nomor_penerima": penerima.PhoneNumber,
+			"amount":         trx.Amount,
+			"notes":          trx.Notes,
+			"tanggal":        trx.CreatedAt.Format("02 Jan 2006, 15:04 WIB"),
+		})
+	}
+
+	if formatRiwayat == nil {
+		formatRiwayat = []gin.H{}
+	}
+
+	// ==============================================================
+	// KIRIM BALASAN KE FLUTTER
+	// ==============================================================
+	c.JSON(http.StatusOK, gin.H{
+		"message":         "Berhasil mengambil data riwayat transfer",
+		"recent_contacts": recentContacts,
+		"total_riwayat":   len(formatRiwayat),
+		"riwayat":         formatRiwayat,
+	})
+}
