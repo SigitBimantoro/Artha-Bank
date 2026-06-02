@@ -8,7 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func SetupRoutes(r *gin.Engine, authService *controllers.AuthController, transactionService *controllers.TransactionController, historyService *controllers.HistoryController) {
+func SetupRoutes(r *gin.Engine, authService *controllers.AuthController, transactionService *controllers.TransactionController, historyService *controllers.HistoryController, savingService *controllers.SavingController) {
 	api := r.Group("/api")
 		api.POST("/register", authService.RegisterUser)
 		api.POST("/verify-otp", authService.VerifyOTP)
@@ -29,6 +29,11 @@ func SetupRoutes(r *gin.Engine, authService *controllers.AuthController, transac
 		protected.POST("/change-pin", authService.ChangePin)
 		protected.GET("/history", historyService.GetRiwayatTransaksi)
 		protected.GET("/history/summary", historyService.GetTrackingKeuangan)
-		
+		protected.GET("/savings", savingService.GetSavings)
+		protected.POST("/savings", savingService.CreateSaving)
+		protected.PUT("/savings/:id", savingService.UpdateSaving)
+		protected.POST("/savings/:id/add", savingService.AddSaldo)
+		protected.POST("/savings/:id/withdraw", savingService.TarikSaldo)
+		protected.GET("/history/transfer", historyService.GetRiwayatTransferKeluar)
 	}
 }
