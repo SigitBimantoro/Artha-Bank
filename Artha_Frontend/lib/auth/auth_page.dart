@@ -3,6 +3,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../dashboard/main_page.dart';
 import 'otp_page.dart';
 import '../services/api_service.dart';
+import 'forgot_password_page.dart';
+import 'create_pin_page.dart'; 
+
 
 class AuthPage extends StatefulWidget {
   final bool isLoginInitial;
@@ -75,20 +78,29 @@ class _AuthPageState extends State<AuthPage> {
         );
 
         if (res['success']) {
-          // --- SIMPAN JWT TOKEN KE SHAREDPREFERENCES ---
-          // Respons backend: {"message": "...", "token": "ey...", "user": {...}}
-          // Di _processResponse dibungkus di dalam "data" -> res['data']['token']
           final token = res['data']['token'];
+          final hasPin = res['data']['has_pin'] ?? false; // Cek status PIN
+
+          // Simpan Token JWT
           if (token != null) {
             final prefs = await SharedPreferences.getInstance();
             await prefs.setString('jwt_token', token.toString());
           }
 
           if (!mounted) return;
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const MainPage()),
-          );
+
+          // Percabangan Alur PIN
+          if (!hasPin) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const CreatePinPage()),
+            );
+          } else {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const MainPage()),
+            );
+          }
         } else {
           _showError(res['message']);
         }
@@ -289,6 +301,33 @@ class _AuthPageState extends State<AuthPage> {
                                 () => _obscurePassword = !_obscurePassword,
                               ),
                             ),
+                            
+                            // TOMBOL LUPA KATA SANDI
+                            if (isLogin)
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: GestureDetector(
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => ForgotPasswordPage(),
+                                      ),
+                                    );
+                                  },
+                                  child: const Text(
+                                    "Lupa kata sandi?",
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      fontFamily: 'Poppins',
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            if (isLogin) const SizedBox(height: 15),
+
                             AnimatedCrossFade(
                               duration: const Duration(milliseconds: 800),
                               sizeCurve: Curves.easeInOutCubic,

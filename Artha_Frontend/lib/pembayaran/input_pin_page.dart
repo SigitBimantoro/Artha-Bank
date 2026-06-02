@@ -1,7 +1,16 @@
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
 
 class InputPinPage extends StatefulWidget {
-  const InputPinPage({super.key});
+  final String phoneNumber;
+  final double amount;
+
+  // Constructor dimodifikasi untuk menerima data pembayaran
+  const InputPinPage({
+    super.key,
+    required this.phoneNumber,
+    required this.amount,
+  });
 
   @override
   State<InputPinPage> createState() => _InputPinPageState();
@@ -9,29 +18,81 @@ class InputPinPage extends StatefulWidget {
 
 class _InputPinPageState extends State<InputPinPage> {
   String _pin = "";
+  bool _isLoading = false;
 
   void _onKeypadTap(String value) {
-    if (_pin.length < 6) {
+    if (_pin.length < 6 && !_isLoading) {
       setState(() {
         _pin += value;
       });
     }
 
-    if (_pin.length == 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('PIN Diterima. Memproses Transaksi...'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+    if (_pin.length == 6 && !_isLoading) {
+      _prosesPembayaranAPI();
     }
   }
 
   void _onBackspace() {
-    if (_pin.isNotEmpty) {
+    if (_pin.isNotEmpty && !_isLoading) {
       setState(() {
         _pin = _pin.substring(0, _pin.length - 1);
       });
+    }
+  }
+
+  // Fungsi untuk memproses pembayaran ke Backend
+  Future<void> _prosesPembayaranAPI() async {
+    setState(() => _isLoading = true);
+    
+    // Tampilkan loading muter-muter tanpa merusak style ui belakang
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(color: Colors.white),
+      ),
+    );
+
+    final res = await ApiService.beliPulsa(
+      phoneNumber: widget.phoneNumber,
+      amount: widget.amount,
+      pin: _pin,
+    );
+
+    // Tutup loading muter-muter
+    if (mounted) {
+      Navigator.pop(context); 
+    }
+    
+    setState(() => _isLoading = false);
+
+    if (res['success']) {
+      // Jika berhasil, tampilkan pesan sukses
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(res['data']['message'] ?? 'Pembayaran Berhasil!'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        // Kembali ke halaman Dashboard utama (menutup seluruh tumpukan page pembayaran)
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+    } else {
+      // Jika gagal (contoh PIN salah / Saldo kurang), tampilkan error dan reset input PIN
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(res['message']),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        setState(() {
+          _pin = ""; // Kosongkan PIN agar user bisa coba lagi
+        });
+      }
     }
   }
 
@@ -101,10 +162,10 @@ class _InputPinPageState extends State<InputPinPage> {
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 6),
                   child: Text(
-                    isFilled ? "●" : "*", // Pakai bulat atau bintang biasa sesuai ketikan
+                    isFilled ? "●" : "*",
                     style: TextStyle(
                       color: isFilled ? Colors.white : Colors.white.withOpacity(0.4),
-                      fontSize: isFilled ? 24 : 35, // Ukuran disesuaikan biar sejajar rapi
+                      fontSize: isFilled ? 24 : 35,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -112,7 +173,6 @@ class _InputPinPageState extends State<InputPinPage> {
               }),
             ),
 
-            // Menggunakan Expanded kosong yang aman agar layout tidak menutupi area tombol keypad
             const Expanded(child: SizedBox()),
 
             // --- NUMERIC KEYPAD (Bisa Diklik & Lancar) ---
@@ -150,7 +210,7 @@ class _InputPinPageState extends State<InputPinPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const SizedBox(width: 95, height: 75), // Spacer penyeimbang angka 0
+                      const SizedBox(width: 95, height: 75),
                       _buildKeypadButton("0"),
                       _buildBackspaceButton(),
                     ],
@@ -164,12 +224,11 @@ class _InputPinPageState extends State<InputPinPage> {
     );
   }
 
-  // Widget Tombol Angka (Latar Putih, Text Biru)
   Widget _buildKeypadButton(String value) {
     const Color primaryColor = Color(0xFF4D55CC);
     return GestureDetector(
       onTap: () => _onKeypadTap(value),
-      behavior: HitTestBehavior.opaque, // Memastikan seluruh area tombol merespon sentuhan
+      behavior: HitTestBehavior.opaque,
       child: Container(
         width: 95,
         height: 75,
@@ -192,7 +251,6 @@ class _InputPinPageState extends State<InputPinPage> {
     );
   }
 
-  // Widget Tombol Backspace
   Widget _buildBackspaceButton() {
     const Color primaryColor = Color(0xFF4D55CC);
     return GestureDetector(

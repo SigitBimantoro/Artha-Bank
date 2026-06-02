@@ -3,6 +3,7 @@ import 'dart:math';
 import '../pembayaran/pembayaran_page.dart'; 
 import '../transfer/transfer_page.dart'; // 1. SUDAH DI-IMPORT DI SINI
 
+
 // --- MODEL DATA UNTUK GRAFIK DINAMIS ---
 class ChartData {
   final double nominal;
@@ -363,37 +364,38 @@ class _HomePageState extends State<HomePage> {
 
   // Helper Widget Button
   Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque, // 3. DITAMBAHKAN AGAR KLIK LEBIH SENSITIF & RESPONSIV
-      child: Container(
-        height: 95,
-        decoration: BoxDecoration(
-          color: const Color(0xFF4D55CC),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: Colors.white, size: 26),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
-                fontFamily: 'Poppins',
-              ),
-            ),
-          ],
-        ),
+  required IconData icon,
+  required String label,
+  required VoidCallback onTap,
+}) {
+  const Color primaryColor = Color(0xFF4D55CC);
+  return GestureDetector(
+    onTap: onTap,
+    child: Container(
+      height: 80,
+      decoration: BoxDecoration(
+        color: primaryColor,
+        borderRadius: BorderRadius.circular(16),
       ),
-    );
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: Colors.white, size: 26),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+              fontFamily: 'Poppins',
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
   }
 
   Widget _buildTransactionItem(
@@ -460,7 +462,6 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
-}
 
 class DynamicDoughnutPainter extends CustomPainter {
   final List<ChartData> dataList;

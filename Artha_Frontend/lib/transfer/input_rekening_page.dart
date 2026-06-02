@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../pembayaran/input_pin_page.dart'; // <-- 1. INI KUNCI UTAMA BIAR ENGGAK MERAH LAGI
+import '../pembayaran/input_pin_page.dart'; // <-- Path sudah benar
 
 class InputRekeningPage extends StatefulWidget {
   final String? initialBankName;
@@ -34,7 +34,7 @@ class _InputRekeningPageState extends State<InputRekeningPage> {
     super.dispose();
   }
 
-  // --- POP-UP CEK DETAIL PENERIMA (PERSIS 100% SEPERTI GAMBAR KAMU) ---
+  // --- POP-UP CEK DETAIL PENERIMA ---
   void _showCekDetailPenerimaBottomSheet() {
     const Color primaryColor = Color(0xFF4D55CC);
 
@@ -55,7 +55,6 @@ class _InputRekeningPageState extends State<InputRekeningPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Judul Pop-up
               const Text(
                 "Cek Detail Penerima",
                 style: TextStyle(
@@ -67,7 +66,6 @@ class _InputRekeningPageState extends State<InputRekeningPage> {
               ),
               const SizedBox(height: 20),
 
-              // Kotak Info Bergaris Tepi Biru/Ungu
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 15),
@@ -81,7 +79,6 @@ class _InputRekeningPageState extends State<InputRekeningPage> {
                 ),
                 child: Column(
                   children: [
-                    // Avatar / Icon User Kotak Melengkung
                     Container(
                       width: 55,
                       height: 55,
@@ -93,7 +90,6 @@ class _InputRekeningPageState extends State<InputRekeningPage> {
                     ),
                     const SizedBox(height: 15),
                     
-                    // Nama Penerima
                     const Text(
                       "Muhammad Reza Raffi",
                       style: TextStyle(
@@ -105,7 +101,6 @@ class _InputRekeningPageState extends State<InputRekeningPage> {
                     ),
                     const SizedBox(height: 5),
                     
-                    // Detail Bank & No Rekening
                     Text(
                       "$selectedBankName - ${_rekeningController.text}",
                       style: const TextStyle(
@@ -119,7 +114,6 @@ class _InputRekeningPageState extends State<InputRekeningPage> {
               ),
               const SizedBox(height: 20),
 
-              // Subteks instruksi bawah kotak
               const Text(
                 "Pastikan data penerima sudah benar.",
                 style: TextStyle(
@@ -130,13 +124,21 @@ class _InputRekeningPageState extends State<InputRekeningPage> {
               ),
               const SizedBox(height: 25),
 
-              // Tombol Lanjutkan (Masuk Ke PIN Page)
               GestureDetector(
                 onTap: () {
-                  Navigator.pop(context); // Tutup pop-up konfirmasi detail
+                  Navigator.pop(context); 
+                  
+                  // ========================================================
+                  // 🟢 PERBAIKAN DI SINI: Menambahkan parameter yang diminta
+                  // ========================================================
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const InputPinPage()), // <-- Lancar Jaya masuk ke PIN
+                    MaterialPageRoute(
+                      builder: (context) => InputPinPage(
+                        phoneNumber: _rekeningController.text, 
+                        amount: 0, // <-- Diisi 0 sementara agar tidak merah
+                      ), 
+                    ),
                   );
                 },
                 child: Container(
@@ -161,7 +163,6 @@ class _InputRekeningPageState extends State<InputRekeningPage> {
               ),
               const SizedBox(height: 20),
 
-              // Tombol Batal / Ubah Penerima
               GestureDetector(
                 onTap: () => Navigator.pop(context),
                 child: const Text(
@@ -380,7 +381,6 @@ class _InputRekeningPageState extends State<InputRekeningPage> {
                 );
                 return;
               }
-              // Munculkan Bottom Sheet konfirmasi detail penerima
               _showCekDetailPenerimaBottomSheet();
             },
             child: Container(

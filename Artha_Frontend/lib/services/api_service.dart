@@ -15,8 +15,6 @@ class ApiService {
     return prefs.getString('jwt_token');
   }
 
-  // Fungsi ini otomatis menyisipkan Token JWT ke header.
-  // Gunakan untuk endpoint protected seperti topup, transfer, dan logout.
   static Future<Map<String, String>> getAuthHeaders() async {
     final token = await getToken();
     return {
@@ -25,7 +23,6 @@ class ApiService {
     };
   }
 
-  // Menghapus token dari memori HP
   static Future<void> clearLocalToken() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('jwt_token');
@@ -87,7 +84,6 @@ class ApiService {
     return _processResponse(response);
   }
 
-  // Fungsi Hit API Logout ke Backend (Ubah status REVOKED di DB Golang)
   static Future<Map<String, dynamic>> logoutProcess() async {
     final headers = await getAuthHeaders();
     try {
@@ -95,8 +91,6 @@ class ApiService {
         Uri.parse('$baseUrl/logout'),
         headers: headers,
       );
-      // Hapus token lokal agar user tetap keluar dari aplikasi,
-      // terlepas dari apakah koneksi internet berhasil memanggil API atau tidak.
       await clearLocalToken();
       return _processResponse(response);
     } catch (e) {
@@ -109,14 +103,115 @@ class ApiService {
   }
 
   // ==========================================
+  // ENDPOINT LUPA KATA SANDI (VIA EMAIL)
+  // ==========================================
+
+  static Future<Map<String, dynamic>> requestForgotPassword({
+    required String email,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/forgot-password'),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({"email": email}),
+    );
+    return _processResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> resetPassword({
+    required String email,
+    required String otp,
+    required String newPassword,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/reset-password'),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "email": email,
+        "otp": otp,
+        "new_password": newPassword,
+      }),
+    );
+    return _processResponse(response);
+  }
+
+  // ==========================================
+  // ENDPOINT KEAMANAN PIN
+  // ==========================================
+  
+  static Future<Map<String, dynamic>> setPin({required String pin}) async {
+    final headers = await getAuthHeaders();
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/set-pin'),
+        headers: headers,
+        body: jsonEncode({"pin": pin}),
+      );
+      return _processResponse(response);
+    } catch (e) {
+      return {
+        "success": false,
+        "message": "Gagal terhubung ke server",
+      };
+    }
+  }
+
+  // ==========================================
+  // ENDPOINT TRANSAKSI / PEMBAYARAN
+  // ==========================================
+
+  static Future<Map<String, dynamic>> beliPulsa({
+    required String phoneNumber,
+    required double amount,
+    required String pin,
+  }) async {
+    final headers = await getAuthHeaders();
+    headers['X-PIN'] = pin; 
+
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/payment/pulsa'),
+        headers: headers,
+        body: jsonEncode({
+          "phone_number": phoneNumber,
+          "amount": amount,
+        }),
+      );
+      return _processResponse(response);
+    } catch (e) {
+      return {
+        "success": false,
+        "message": "Gagal terhubung ke server",
+      };
+    }
+  }
+
+  // ==========================================
+  // ENDPOINT PROFILE
+  // ==========================================
+  
+  static Future<Map<String, dynamic>> getProfile() async {
+    final headers = await getAuthHeaders();
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/profile'),
+        headers: headers,
+      );
+      return _processResponse(response);
+    } catch (e) {
+      return {
+        "success": false,
+        "message": "Gagal terhubung ke server",
+      };
+    }
+  }
+
+  // ==========================================
   // HELPER UNTUK MEMPROSES RESPONSE
   // ==========================================
   static Map<String, dynamic> _processResponse(http.Response response) {
     if (response.statusCode == 200 || response.statusCode == 201) {
-      // Backend return data sukses
       return {"success": true, "data": jsonDecode(response.body)};
     } else {
-      // Backend return gin.H{"error": "..."}
       final errorData = jsonDecode(response.body);
       return {
         "success": false,

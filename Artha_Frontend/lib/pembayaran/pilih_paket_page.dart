@@ -177,7 +177,7 @@ class _PilihPaketPageState extends State<PilihPaketPage> {
                     ),
                   ),
                   Text(
-                    "Rp 2.000",
+                    "Rp 0", // Kita gratiskan biaya admin sesuai backend
                     style: TextStyle(
                       color: primaryColor,
                       fontWeight: FontWeight.w900,
@@ -191,10 +191,19 @@ class _PilihPaketPageState extends State<PilihPaketPage> {
 
               GestureDetector(
                 onTap: () {
-                  Navigator.pop(context); 
+                  Navigator.pop(context); // Tutup Dialog pop-up
+                  
+                  // Mengubah string "15" menjadi double 15000.0 untuk dikirim ke Backend
+                  double finalAmount = double.parse(nominalHarga) * 1000;
+
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const InputPinPage()),
+                    MaterialPageRoute(
+                      builder: (context) => InputPinPage(
+                        phoneNumber: widget.phoneNumber,
+                        amount: finalAmount,
+                      ),
+                    ),
                   ); 
                 },
                 child: Container(
@@ -484,9 +493,7 @@ class _PilihPaketPageState extends State<PilihPaketPage> {
     );
   }
 
-  // --- TOMBOL LANJUTKAN DI BAWAH (SUDAH DITAMBAHKAN FITUR DISABLE) ---
   Widget _buildBottomButton() {
-    // Validasi apakah user sudah memilih paket/pulsa atau belum
     bool isPackageSelected = (!isDataActive && selectedPulsaIndex != null) || 
                              (isDataActive && selectedDataIndex != null);
 
@@ -506,11 +513,10 @@ class _PilihPaketPageState extends State<PilihPaketPage> {
                     _showKonfirmasiDialog(nominal);
                   }
                 }
-              : null, // Jika belum milih paket, fungsi tap dimatikan (null)
+              : null,
           child: Container(
             height: 55,
             decoration: BoxDecoration(
-              // Jika aktif pakai warna ungu utama, jika disable berubah menjadi abu-abu terang
               color: isPackageSelected ? const Color(0xFF4D55CC) : Colors.grey.shade400,
               borderRadius: BorderRadius.circular(30),
             ),
