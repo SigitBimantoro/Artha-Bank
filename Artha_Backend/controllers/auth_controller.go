@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -33,14 +35,14 @@ type AuthController struct {
 	DB *gorm.DB
 }
 type RegisterRequest struct {
-	Nama     string `json:"nama" binding:"required"`
-	Email    string `json:"email" binding:"required,email"`
-	PhoneNumber string	`json:"phone_number" binding:"required,numeric,min=10,max=13"`
-	Password string `json:"password" binding:"required,min=6"`
+	Nama        string `json:"nama" binding:"required"`
+	Email       string `json:"email" binding:"required,email"`
+	PhoneNumber string `json:"phone_number" binding:"required,numeric,min=10,max=13"`
+	Password    string `json:"password" binding:"required,min=6"`
 }
 type LoginRequest struct {
-	PhoneNumber string	`json:"phone_number" binding:"required,numeric,min=10,max=13"`
-	Password string `json:"password" binding:"required,min=6"`
+	PhoneNumber string `json:"phone_number" binding:"required,numeric,min=10,max=13"`
+	Password    string `json:"password" binding:"required,min=6"`
 }
 type VerifyOTPRequest struct {
 	Email string `json:"email" binding:"required,email"`
@@ -55,22 +57,29 @@ type ResendOTPRequest struct {
 type SetPinReq struct {
 	Pin string `json:"pin" binding:"required,len=6,numeric"`
 }
+type UpdateProfileReq struct {
+	Nama        string `form:"nama"`
+	Email       string `form:"email"`
+	PhoneNumber string `form:"phone_number"`
+}
+
 // Struct untuk Request Ganti PIN
 type ChangePinReq struct {
 	Password      string `json:"password" binding:"required"`
 	NewPin        string `json:"new_pin" binding:"required,numeric,len=6"`
 	ConfirmNewPin string `json:"confirm_new_pin" binding:"required,numeric,len=6"`
 }
-func (ac *AuthController)RegisterUser(c *gin.Context) {
+
+func (ac *AuthController) RegisterUser(c *gin.Context) {
 	var req RegisterRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		
+
 		// Cek apakah errornya berasal dari tag binding (required, min, dll)
 		if validationErrors, ok := err.(validator.ValidationErrors); ok {
 			// Kita ambil error yang PERTAMA kali ditemukan saja
 			firstError := validationErrors[0]
-			
+
 			var pesanError string
 			polaNama := regexp.MustCompile(`^[a-zA-Z\s]+$`)
 			// Bedah berdasarkan nama kolom (Field) dan aturannya (Tag)
@@ -78,7 +87,7 @@ func (ac *AuthController)RegisterUser(c *gin.Context) {
 			case "Nama":
 				if firstError.Tag() == "required" {
 					pesanError = "Nama tidak boleh kosong."
-				} else if !polaNama.MatchString(req.Nama){
+				} else if !polaNama.MatchString(req.Nama) {
 					pesanError = "Nama tidak valid."
 				}
 			case "PhoneNumber":
@@ -98,13 +107,13 @@ func (ac *AuthController)RegisterUser(c *gin.Context) {
 			case "Email":
 				if firstError.Tag() == "required" {
 					pesanError = "Email tidak boleh kosong."
-				} else{
+				} else {
 					pesanError = "Email Tidak Valid"
 				}
 			default:
 				pesanError = "Data tidak valid pada kolom " + firstError.Field()
 			}
-			
+
 			// Kirim 1 pesan spesifik ke Flutter
 			c.JSON(http.StatusBadRequest, gin.H{"error": pesanError})
 			return
@@ -124,10 +133,10 @@ func (ac *AuthController)RegisterUser(c *gin.Context) {
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 
 	newUser := models.User{
-		Nama:     req.Nama,
-		Email:    req.Email,
+		Nama:        req.Nama,
+		Email:       req.Email,
 		PhoneNumber: req.PhoneNumber,
-		Password: string(hashedPassword),
+		Password:    string(hashedPassword),
 	}
 	if result := ac.DB.Create(&newUser); result.Error != nil {
 		c.JSON(http.StatusConflict, gin.H{"error": "Email or phone number is already registered."})
@@ -163,7 +172,7 @@ func (ac *AuthController)RegisterUser(c *gin.Context) {
 	})
 }
 
-func (ac *AuthController)VerifyOTP(c *gin.Context) {
+func (ac *AuthController) VerifyOTP(c *gin.Context) {
 	var req VerifyOTPRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -178,7 +187,7 @@ func (ac *AuthController)VerifyOTP(c *gin.Context) {
 
 	var otp models.Otp
 	result := ac.DB.Where("user_id = ? AND kode = ? AND status = 'PENDING'", user.UserID, req.Kode).First(&otp)
-	
+
 	if result.Error != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Email or OTP code is incorrect."})
 		return
@@ -197,15 +206,15 @@ func (ac *AuthController)VerifyOTP(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Verification successful! Your account is now active."})
 }
 
-func (ac *AuthController)LoginUser(c *gin.Context) {
+func (ac *AuthController) LoginUser(c *gin.Context) {
 	var req LoginRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		
+
 		if validationErrors, ok := err.(validator.ValidationErrors); ok {
 			firstError := validationErrors[0]
 			var pesanError string
-			
+
 			switch firstError.Field() {
 			case "PhoneNumber":
 				if firstError.Tag() == "required" {
@@ -222,7 +231,7 @@ func (ac *AuthController)LoginUser(c *gin.Context) {
 			default:
 				pesanError = "Data tidak valid pada " + firstError.Field()
 			}
-			
+
 			c.JSON(http.StatusBadRequest, gin.H{"error": pesanError})
 			return
 		}
@@ -232,7 +241,7 @@ func (ac *AuthController)LoginUser(c *gin.Context) {
 	}
 	var user models.User
 	result := ac.DB.Where("phone_number = ?", req.PhoneNumber).First(&user)
-	
+
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "PhoneNumber or Password is incorrect."})
@@ -241,18 +250,18 @@ func (ac *AuthController)LoginUser(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
-	
+
 	err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "PhoneNumber or Password is incorrect."})
 		return
 	}
 	if !user.IsVerified {
-        c.JSON(http.StatusForbidden, gin.H{
-            "error": "The account is not active. Please verify the OTP first.",
-        })
-        return
-    }
+		c.JSON(http.StatusForbidden, gin.H{
+			"error": "The account is not active. Please verify the OTP first.",
+		})
+		return
+	}
 	expirationTime := time.Now().Add(24 * time.Hour)
 	claims := &jwt.RegisteredClaims{
 		Subject:   user.PhoneNumber,
@@ -284,7 +293,7 @@ func (ac *AuthController)LoginUser(c *gin.Context) {
 	})
 }
 
-func (ac *AuthController)ResendOTP(c *gin.Context) {
+func (ac *AuthController) ResendOTP(c *gin.Context) {
 	var req ResendOTPRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -330,6 +339,7 @@ func (ac *AuthController)ResendOTP(c *gin.Context) {
 		"message": "A new OTP has been successfully sent. Please check your email.",
 	})
 }
+
 // FITUR LOGOUT
 func (ac *AuthController) LogoutUser(c *gin.Context) {
 	// Ambil token dari Header (Sama seperti cara middleware)
@@ -383,6 +393,124 @@ func (ac *AuthController) SetUserPin(c *gin.Context) {
 	// 5. Beri balasan sukses
 	c.JSON(http.StatusOK, gin.H{
 		"message": "PIN keamanan berhasil dibuat! Anda sekarang bisa melakukan transaksi.",
+	})
+}
+
+func (ac *AuthController) GetProfile(c *gin.Context) {
+	userIDContext, _ := c.Get("userID")
+	userID := userIDContext.(uint)
+
+	var user models.User
+	if err := ac.DB.First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data profil"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": gin.H{
+			"user_id":      user.UserID,
+			"nama":         user.Nama,
+			"email":        user.Email,
+			"phone_number": user.PhoneNumber,
+			"photo_url":    user.PhotoURL,
+		},
+	})
+}
+
+func (ac *AuthController) UpdateProfile(c *gin.Context) {
+	userIDContext, _ := c.Get("userID")
+	userID := userIDContext.(uint)
+
+	var req UpdateProfileReq
+	req.Nama = c.PostForm("nama")
+	req.Email = c.PostForm("email")
+	req.PhoneNumber = c.PostForm("phone_number")
+
+	photo, photoErr := c.FormFile("photo")
+
+	if req.Nama == "" && req.Email == "" && req.PhoneNumber == "" && photoErr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Minimal satu data profil harus diisi atau file foto harus diunggah."})
+		return
+	}
+
+	updateData := map[string]interface{}{}
+
+	if req.Nama != "" {
+		polaNama := regexp.MustCompile(`^[a-zA-Z\s]+$`)
+		if !polaNama.MatchString(req.Nama) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Nama tidak valid."})
+			return
+		}
+		updateData["nama"] = req.Nama
+	}
+
+	if req.Email != "" {
+		if err := validator.New().Var(req.Email, "required,email"); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Email tidak valid."})
+			return
+		}
+		var existing models.User
+		if err := ac.DB.Where("email = ? AND user_id <> ?", req.Email, userID).First(&existing).Error; err == nil {
+			c.JSON(http.StatusConflict, gin.H{"error": "Email sudah terdaftar oleh pengguna lain."})
+			return
+		}
+		updateData["email"] = req.Email
+	}
+
+	if req.PhoneNumber != "" {
+		polaHP := regexp.MustCompile(`^[0-9]{10,13}$`)
+		if !polaHP.MatchString(req.PhoneNumber) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Nomor telepon tidak valid."})
+			return
+		}
+		var existing models.User
+		if err := ac.DB.Where("phone_number = ? AND user_id <> ?", req.PhoneNumber, userID).First(&existing).Error; err == nil {
+			c.JSON(http.StatusConflict, gin.H{"error": "Nomor telepon sudah digunakan oleh pengguna lain."})
+			return
+		}
+		updateData["phone_number"] = req.PhoneNumber
+	}
+
+	if photoErr == nil {
+		uploadDir := "uploads/profile"
+		if err := os.MkdirAll(uploadDir, os.ModePerm); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat direktori upload."})
+			return
+		}
+
+		fileName := fmt.Sprintf("profile_%d_%d_%s", userID, time.Now().Unix(), filepath.Base(photo.Filename))
+		destination := filepath.Join(uploadDir, fileName)
+
+		if err := c.SaveUploadedFile(photo, destination); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan foto profil."})
+			return
+		}
+
+		updateData["photo_url"] = "/uploads/profile/" + fileName
+	}
+
+	if len(updateData) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Tidak ada data profil yang diperbarui."})
+		return
+	}
+
+	if err := ac.DB.Model(&models.User{}).Where("user_id = ?", userID).Updates(updateData).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui profil."})
+		return
+	}
+
+	var updatedUser models.User
+	ac.DB.First(&updatedUser, userID)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Profil berhasil diperbarui.",
+		"data": gin.H{
+			"user_id":      updatedUser.UserID,
+			"nama":         updatedUser.Nama,
+			"email":        updatedUser.Email,
+			"phone_number": updatedUser.PhoneNumber,
+			"photo_url":    updatedUser.PhotoURL,
+		},
 	})
 }
 
@@ -456,7 +584,7 @@ func (ac *AuthController) ResetPassword(c *gin.Context) {
 
 	// Update Password User & Matikan OTP (Ubah jadi EXPIRED/USED)
 	tx := ac.DB.Begin()
-	
+
 	if err := tx.Model(&user).Update("password", string(hashedPassword)).Error; err != nil {
 		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengubah password."})
@@ -475,7 +603,6 @@ func (ac *AuthController) ResetPassword(c *gin.Context) {
 		"message": "Password berhasil diubah! Silakan login dengan password baru Anda.",
 	})
 }
-
 
 // ==========================================
 // FITUR CEK PASSWORD (UNTUK PAGE 1 GANTI PIN)
@@ -515,6 +642,7 @@ func (ac *AuthController) VerifyPassword(c *gin.Context) {
 		"message": "Password benar, silakan lanjut masukkan PIN.",
 	})
 }
+
 // ==========================================
 // FITUR GANTI PIN KEAMANAN
 // ==========================================
