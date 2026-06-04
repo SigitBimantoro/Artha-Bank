@@ -3,11 +3,15 @@ package controllers
 
 import (
 	"artha/models"
+	"bytes"
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jung-kurt/gofpdf"
 	"gorm.io/gorm"
 )
 
@@ -33,13 +37,13 @@ func (hc *HistoryController) GetRiwayatTransaksi(c *gin.Context) {
 	// 1. Ambil ID User yang sedang login dari Satpam JWT
 	userIDContext, _ := c.Get("userID")
 	userID := userIDContext.(uint)
-	
-	limitStr := c.Query("limit") // Cek apakah ada '?limit=...' di URL
+
+	limitStr := c.Query("limit")                // Cek apakah ada '?limit=...' di URL
 	limitPencarian, _ := strconv.Atoi(limitStr) // Ubah teks jadi angka. Kalau kosong, hasilnya otomatis 0
 
 	// 2. Siapkan keranjang kosong untuk menampung banyak data transaksi
 	var riwayat []models.Transaction
-	
+
 	query := hc.DB.Where("sender_id = ? OR receiver_id = ?", userID, userID).
 		Order("created_at desc")
 
@@ -86,63 +90,50 @@ func (hc *HistoryController) GetRiwayatTransaksi(c *gin.Context) {
 	})
 }
 
-func (hc *HistoryController) GetTrackingKeuangan(c *gin.Context) {
-	userIDContext, _ := c.Get("userID")
-	userID := userIDContext.(uint)
-
-	period := c.DefaultQuery("period", "weekly")
-
+func (hc *HistoryController) buildTrackingKeuangan(userID uint, period string) (RincianKategori, []GrafikBatang, float64, error) {
 	var startDate time.Time
 	now := time.Now().UTC()
 
-	// 2. Siapkan "Keranjang Kosong" untuk Grafik Batang (Bar Chart)
 	var barChart []GrafikBatang
 
 	switch period {
 	case "weekly":
 		startDate = now.AddDate(0, 0, -7)
 		barChart = []GrafikBatang{
-			{Label: "Sen"}, {Label: "Sel"}, {Label: "Rab"}, {Label: "Kam"}, 
+			{Label: "Sen"}, {Label: "Sel"}, {Label: "Rab"}, {Label: "Kam"},
 			{Label: "Jum"}, {Label: "Sab"}, {Label: "Min"},
 		}
 	case "monthly":
 		startDate = now.AddDate(0, -1, 0)
 		barChart = []GrafikBatang{
-			{Label: "M1"}, {Label: "M2"}, {Label: "M3"}, {Label: "M4"}, // Minggu 1, 2, 3, 4
+			{Label: "M1"}, {Label: "M2"}, {Label: "M3"}, {Label: "M4"},
 		}
 	case "yearly":
 		startDate = now.AddDate(-1, 0, 0)
 		barChart = []GrafikBatang{
-			{Label: "Jan"}, {Label: "Feb"}, {Label: "Mar"}, {Label: "Apr"}, 
-			{Label: "Mei"}, {Label: "Jun"}, {Label: "Jul"}, {Label: "Ags"}, 
+			{Label: "Jan"}, {Label: "Feb"}, {Label: "Mar"}, {Label: "Apr"},
+			{Label: "Mei"}, {Label: "Jun"}, {Label: "Jul"}, {Label: "Ags"},
 			{Label: "Sep"}, {Label: "Okt"}, {Label: "Nov"}, {Label: "Des"},
 		}
 	default:
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Periode tidak valid"})
-		return
+		return RincianKategori{}, nil, 0, fmt.Errorf("Periode tidak valid")
 	}
 
-	// 3. Tarik SEMUA transaksi dalam rentang waktu tersebut (CUKUP 1 QUERY SAJA!)
 	var riwayat []models.Transaction
 	if err := hc.DB.Where("(sender_id = ? OR receiver_id = ?) AND created_at >= ?", userID, userID, startDate).
 		Find(&riwayat).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data tracking"})
-		return
+		return RincianKategori{}, nil, 0, err
 	}
 
-	// 4. Siapkan Keranjang untuk Pie Chart
 	var pieChart RincianKategori
 	var grandTotal float64
 
-	// 5. PROSES PENGELOMPOKKAN (Murni di Memori Golang = Super Cepat)
 	for _, trx := range riwayat {
-		// A. Tentukan Kategori Transaksi
 		isPembayaran := trx.SenderID == userID && (trx.TransactionType == "PULSA" || trx.TransactionType == "PLN")
 		isTopUp := trx.ReceiverID == userID && trx.TransactionType == "TOPUP"
 		isTransferKeluar := trx.SenderID == userID && trx.TransactionType == "TRANSFER"
 		isTransferMasuk := trx.ReceiverID == userID && trx.TransactionType == "TRANSFER"
 
-		// B. Tambahkan ke Grand Total & Pie Chart
 		grandTotal += trx.Amount
 		if isPembayaran {
 			pieChart.Pembayaran += trx.Amount
@@ -154,24 +145,23 @@ func (hc *HistoryController) GetTrackingKeuangan(c *gin.Context) {
 			pieChart.TransferMasuk += trx.Amount
 		}
 
-		// C. Tentukan Masuk ke Keranjang Bar Chart yang Mana (Berdasarkan Waktu)
 		idx := 0
 		if period == "weekly" {
-			// Golang: Minggu=0, Senin=1. Kita ubah agar Senin=0, Minggu=6
 			wd := int(trx.CreatedAt.Weekday())
 			idx = wd - 1
-			if idx < 0 { idx = 6 }
+			if idx < 0 {
+				idx = 6
+			}
 		} else if period == "monthly" {
-			// Bagi tanggal menjadi 4 minggu (Tgl 1-7 = M1, 8-14 = M2, dst)
 			day := trx.CreatedAt.Day()
 			idx = (day - 1) / 7
-			if idx > 3 { idx = 3 } // Mentok di index 3 (M4)
+			if idx > 3 {
+				idx = 3
+			}
 		} else if period == "yearly" {
-			// Bulan Jan=1, Feb=2. Kurangi 1 agar index array Jan=0, Feb=1
 			idx = int(trx.CreatedAt.Month()) - 1
 		}
 
-		// D. Masukkan Nominal ke Bar Chart yang Sesuai
 		if isPembayaran {
 			barChart[idx].Nominal.Pembayaran += trx.Amount
 		} else if isTopUp {
@@ -183,7 +173,21 @@ func (hc *HistoryController) GetTrackingKeuangan(c *gin.Context) {
 		}
 	}
 
-	// 6. Kirim JSON Rapi ke Flutter
+	return pieChart, barChart, grandTotal, nil
+}
+
+func (hc *HistoryController) GetTrackingKeuangan(c *gin.Context) {
+	userIDContext, _ := c.Get("userID")
+	userID := userIDContext.(uint)
+
+	period := c.DefaultQuery("period", "weekly")
+
+	pieChart, barChart, grandTotal, err := hc.buildTrackingKeuangan(userID, period)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"message":           "Berhasil mengambil data tracking",
 		"periode":           period,
@@ -191,6 +195,64 @@ func (hc *HistoryController) GetTrackingKeuangan(c *gin.Context) {
 		"pie_chart":         pieChart,
 		"bar_chart":         barChart,
 	})
+}
+
+func (hc *HistoryController) ExportTrackingKeuanganPDF(c *gin.Context) {
+	userIDContext, _ := c.Get("userID")
+	userID := userIDContext.(uint)
+
+	period := c.DefaultQuery("period", "weekly")
+
+	pieChart, barChart, grandTotal, err := hc.buildTrackingKeuangan(userID, period)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	pdf := gofpdf.New("P", "mm", "A4", "")
+	pdf.SetTitle("Ringkasan Keuangan Artha", false)
+	pdf.AddPage()
+	pdf.SetFont("Arial", "B", 16)
+	pdf.Cell(0, 10, "Ringkasan Keuangan Artha")
+	pdf.Ln(12)
+
+	pdf.SetFont("Arial", "", 12)
+	pdf.CellFormat(0, 7, fmt.Sprintf("Periode: %s", strings.Title(period)), "", 1, "", false, 0, "")
+	pdf.CellFormat(0, 7, fmt.Sprintf("Total Keseluruhan: Rp %.2f", grandTotal), "", 1, "", false, 0, "")
+	pdf.Ln(5)
+
+	pdf.SetFont("Arial", "B", 12)
+	pdf.Cell(0, 7, "Rincian Kategori:")
+	pdf.Ln(8)
+	pdf.SetFont("Arial", "", 11)
+	pdf.CellFormat(0, 6, fmt.Sprintf("- Pembayaran: Rp %.2f", pieChart.Pembayaran), "", 1, "", false, 0, "")
+	pdf.CellFormat(0, 6, fmt.Sprintf("- Top Up: Rp %.2f", pieChart.TopUp), "", 1, "", false, 0, "")
+	pdf.CellFormat(0, 6, fmt.Sprintf("- Transfer Masuk: Rp %.2f", pieChart.TransferMasuk), "", 1, "", false, 0, "")
+	pdf.CellFormat(0, 6, fmt.Sprintf("- Transfer Keluar: Rp %.2f", pieChart.TransferKeluar), "", 1, "", false, 0, "")
+	pdf.Ln(8)
+
+	pdf.SetFont("Arial", "B", 12)
+	pdf.Cell(0, 7, "Bar Chart (Ringkasan):")
+	pdf.Ln(8)
+	pdf.SetFont("Arial", "", 11)
+	for _, bar := range barChart {
+		pdf.MultiCell(0, 6, fmt.Sprintf("%s: Pembayaran Rp %.2f, Top Up Rp %.2f, Transfer Masuk Rp %.2f, Transfer Keluar Rp %.2f", bar.Label, bar.Nominal.Pembayaran, bar.Nominal.TopUp, bar.Nominal.TransferMasuk, bar.Nominal.TransferKeluar), "", "L", false)
+	}
+	pdf.Ln(8)
+
+	pdf.SetFont("Arial", "I", 10)
+	pdf.CellFormat(0, 6, fmt.Sprintf("Dihasilkan pada: %s", time.Now().Format("02 Jan 2006 15:04")), "", 1, "", false, 0, "")
+
+	var buf bytes.Buffer
+	if err := pdf.Output(&buf); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat file PDF"})
+		return
+	}
+
+	fileName := fmt.Sprintf("summary_%s.pdf", period)
+	c.Header("Content-Type", "application/pdf")
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", fileName))
+	c.Data(http.StatusOK, "application/pdf", buf.Bytes())
 }
 
 func (hc *HistoryController) GetRiwayatTransferKeluar(c *gin.Context) {

@@ -3,7 +3,9 @@ package main
 import (
 	"artha/config"
 	"artha/controllers"
+	"artha/handlers"
 	"artha/jobs"
+	"artha/repositories"
 	"artha/routes"
 	"artha/services"
 
@@ -20,8 +22,14 @@ func main() {
 	transactionController := &controllers.TransactionController{DB: config.DB}
 	historyController := &controllers.HistoryController{DB: config.DB}
 	savingController := &controllers.SavingController{DB: config.DB}
+
+	favoriteRepository := repositories.NewFavoriteRepository(config.DB)
+	favoriteService := services.NewFavoriteService(favoriteRepository)
+	favoriteHandler := handlers.NewFavoriteHandler(favoriteService)
+
 	r := gin.Default()
-	routes.SetupRoutes(r, authController, transactionController, historyController, savingController)
+	r.Static("/uploads", "./uploads")
+	routes.SetupRoutes(r, authController, transactionController, historyController, savingController, favoriteHandler)
 	c := cron.New()
 	c.AddFunc("0 0 * * *", func() {
 		jobs.ProsesAutoDebit(config.DB) // (Ganti config.DB dengan variabel database-mu)
