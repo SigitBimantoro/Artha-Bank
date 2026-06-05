@@ -81,10 +81,10 @@ class _AuthPageState extends State<AuthPage> {
           final token = res['data']['token'];
           final hasPin = res['data']['has_pin'] ?? false; // Cek status PIN
 
-          // Simpan Token JWT
+          // Simpan Token JWT (kunci 'token' sesuai dengan ApiService.getToken())
           if (token != null) {
             final prefs = await SharedPreferences.getInstance();
-            await prefs.setString('jwt_token', token.toString());
+            await prefs.setString('token', token.toString());
           }
 
           if (!mounted) return;

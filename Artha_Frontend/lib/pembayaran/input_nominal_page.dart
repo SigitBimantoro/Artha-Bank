@@ -118,7 +118,7 @@ class _InputNominalPageState extends State<InputNominalPage> {
                       builder: (context) => InputPinPage(
                         phoneNumber: widget.receiverPhone,
                         amount: double.parse(_amountController.text),
-                        isTransfer: true, 
+                       type: 'TRANSFER', 
                         notes: _notesController.text,
                       ),
                     ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
+import '../services/api_service.dart';
 
 // --- MODEL DATA UNTUK GRAFIK DINAMIS ---
 class ChartData {
@@ -17,18 +18,77 @@ class TrackingPage extends StatefulWidget {
 
 class _TrackingPageState extends State<TrackingPage> {
   int _selectedTab = 0; // 0: Mingguan, 1: Bulanan, 2: Tahunan
+  double _totalNominal = 0; // Default nominal 0 agar real dari API
 
-  // --- DATA NOMINAL GRAFIK DONAT ---
-  final List<ChartData> dataPengeluaran = [
-    ChartData(600000, const Color(0xFF4D55CC)), // Ungu Utama
-    ChartData(200000, const Color(0xFFD2CFF0)), // Ungu Terang
-    ChartData(200000, const Color(0xFF2C265C)), // Ungu Gelap
+  List<ChartData> dataPengeluaran = [
+    ChartData(1, const Color(0xFFE0E0E0)), // Default Abu-abu agar tidak blank
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchData(); 
+  }
+
+  // --- LOGIKA API ---
+  Future<void> _fetchData() async {
+    String period = _selectedTab == 0 ? 'weekly' : (_selectedTab == 1 ? 'monthly' : 'yearly');
+    
+    try {
+      final res = await ApiService.getTrackingKeuangan(period);
+      
+      if (mounted && res['success'] == true && res['data'] != null && res['data']['data'] != null) {
+        final pieData = res['data']['data']['pie_chart'];
+        if (pieData != null) {
+          double p = (pieData['pembayaran'] ?? 0).toDouble();
+          double t = (pieData['top_up'] ?? 0).toDouble();
+          double tr = (pieData['transfer_keluar'] ?? 0).toDouble();
+          
+          setState(() {
+            _totalNominal = p + t + tr;
+            
+            if (_totalNominal > 0) {
+              dataPengeluaran = [
+                ChartData(p, const Color(0xFF2C265C)), // Pembayaran
+                ChartData(t, const Color(0xFF4D55CC)), // Top up
+                ChartData(tr, const Color(0xFFD2CFF0)), // Transfer
+              ];
+            } else {
+              dataPengeluaran = [
+                ChartData(1, const Color(0xFFE0E0E0)),
+              ];
+            }
+          });
+        }
+      }
+    } catch (e) {
+      // Abaikan error agar UI tidak terganggu
+    }
+  }
+
+  // Helper untuk Teks Periode Aktif
+  String get _periodeText {
+    if (_selectedTab == 0) return "Minggu ini";
+    if (_selectedTab == 1) return "Bulan ini";
+    return "Tahun ini";
+  }
+
+  String _formatRupiahSingkat(double value) {
+    if (value == 0) return "Rp 0";
+    if (value >= 1000000) {
+      double result = value / 1000000;
+      return "Rp ${result == result.toInt() ? result.toInt() : result.toStringAsFixed(1)} jt";
+    } else if (value >= 1000) {
+      double result = value / 1000;
+      return "Rp ${result == result.toInt() ? result.toInt() : result.toStringAsFixed(1)} rb";
+    }
+    return "Rp ${value.toInt()}";
+  }
 
   @override
   Widget build(BuildContext context) {
     const Color primaryColor = Color(0xFF4D55CC);
-    const Color bgColor = Color(0xFFF8F9FA); // Off-white cerah
+    const Color bgColor = Color(0xFFF8F9FA); 
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -38,7 +98,6 @@ class _TrackingPageState extends State<TrackingPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // --- JUDUL HALAMAN ---
               const Text(
                 'Tracking keuangan',
                 style: TextStyle(
@@ -60,7 +119,7 @@ class _TrackingPageState extends State<TrackingPage> {
               ),
               const SizedBox(height: 25),
 
-              // --- TAB SELECTOR (Mingguan, Bulanan, Tahunan) ---
+              // --- TAB SELECTOR ---
               Container(
                 height: 55,
                 padding: const EdgeInsets.all(5),
@@ -78,7 +137,7 @@ class _TrackingPageState extends State<TrackingPage> {
               ),
               const SizedBox(height: 25),
 
-              // --- KARTU 1: TRACKING KEUANGAN (HARI INI) ---
+              // --- KARTU 1: TRACKING KEUANGAN (DONUT CHART) ---
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -87,7 +146,6 @@ class _TrackingPageState extends State<TrackingPage> {
                 ),
                 child: Column(
                   children: [
-                    // Header Kartu
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -101,17 +159,14 @@ class _TrackingPageState extends State<TrackingPage> {
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 6,
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(20),
                           ),
-                          child: const Text(
-                            "Hari ini",
-                            style: TextStyle(
+                          child: Text(
+                            _periodeText, // <-- Berubah dinamis (Minggu/Bulan/Tahun ini)
+                            style: const TextStyle(
                               color: primaryColor,
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
@@ -122,8 +177,6 @@ class _TrackingPageState extends State<TrackingPage> {
                       ],
                     ),
                     const SizedBox(height: 20),
-
-                    // Kotak Putih Grafik Doughnut
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(vertical: 35),
@@ -144,9 +197,9 @@ class _TrackingPageState extends State<TrackingPage> {
                                 ),
                               ),
                             ),
-                            const Text(
-                              "Rp 1 jt",
-                              style: TextStyle(
+                            Text(
+                              _formatRupiahSingkat(_totalNominal),
+                              style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w900,
                                 color: primaryColor,
@@ -158,8 +211,6 @@ class _TrackingPageState extends State<TrackingPage> {
                       ),
                     ),
                     const SizedBox(height: 15),
-
-                    // Legenda Bawah (Pembayaran, Top up, Transfer)
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -173,7 +224,7 @@ class _TrackingPageState extends State<TrackingPage> {
               ),
               const SizedBox(height: 20),
 
-              // --- KARTU 2: TRACKING KEUANGAN (MINGGU INI) - BAR CHART ---
+              // --- KARTU 2: TRACKING KEUANGAN (BAR CHART) ---
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -182,12 +233,11 @@ class _TrackingPageState extends State<TrackingPage> {
                 ),
                 child: Column(
                   children: [
-                    // Header Kartu
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text(
-                          "Tracking Keuangan",
+                          "Statistik",
                           style: TextStyle(
                             fontWeight: FontWeight.w700,
                             color: Colors.white,
@@ -196,17 +246,14 @@ class _TrackingPageState extends State<TrackingPage> {
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 6,
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(20),
                           ),
-                          child: const Text(
-                            "Minggu ini",
-                            style: TextStyle(
+                          child: Text(
+                            _periodeText, // <-- Berubah dinamis
+                            style: const TextStyle(
                               color: primaryColor,
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
@@ -220,24 +267,11 @@ class _TrackingPageState extends State<TrackingPage> {
 
                     // Area Grafik Bar Bertumpuk
                     SizedBox(
-                      height: 160, // Tinggi area grafik
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          _buildStackedBar("S", 0.20, 0.20, 0.25),
-                          _buildStackedBar("S", 0.35, 0.15, 0.15),
-                          _buildStackedBar("R", 0.35, 0.30, 0.0),
-                          _buildStackedBar("K", 0.55, 0.05, 0.20),
-                          _buildStackedBar("J", 0.35, 0.30, 0.10),
-                          _buildStackedBar("S", 0.15, 0.15, 0.25),
-                          _buildStackedBar("M", 0.50, 0.20, 0.05),
-                        ],
-                      ),
+                      height: 160,
+                      child: _buildDynamicBarChart(), // <-- Render bar dinamis
                     ),
                     const SizedBox(height: 20),
 
-                    // Legenda Bawah (Pembayaran, Top up, Transfer)
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -256,11 +290,15 @@ class _TrackingPageState extends State<TrackingPage> {
     );
   }
 
-  // --- WIDGET HELPER: TAB SELECTOR ---
   Widget _buildTabItem(String title, int index) {
     bool isSelected = _selectedTab == index;
     return GestureDetector(
-      onTap: () => setState(() => _selectedTab = index),
+      onTap: () {
+        if (_selectedTab != index) {
+          setState(() => _selectedTab = index);
+          _fetchData(); 
+        }
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         margin: const EdgeInsets.symmetric(horizontal: 2),
@@ -282,7 +320,6 @@ class _TrackingPageState extends State<TrackingPage> {
     );
   }
 
-  // --- WIDGET HELPER: LEGENDA (PILL BENTUK) ---
   Widget _buildLegendItem(Color dotColor, String label) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -313,27 +350,63 @@ class _TrackingPageState extends State<TrackingPage> {
     );
   }
 
-  // --- WIDGET HELPER: STACKED BAR CHART ---
-  // Parameter berupa persentase tinggi relatif (0.0 - 1.0) dari total tinggi track (120px)
-  Widget _buildStackedBar(
-    String label,
-    double darkPct,
-    double midPct,
-    double lightPct,
-  ) {
+  // --- MERENDER BAR CHART SESUAI TAB ---
+  Widget _buildDynamicBarChart() {
+    if (_selectedTab == 0) {
+      // MINGGUAN (7 Hari)
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          _buildStackedBar("S", 0.20, 0.20, 0.25),
+          _buildStackedBar("S", 0.35, 0.15, 0.15),
+          _buildStackedBar("R", 0.35, 0.30, 0.0),
+          _buildStackedBar("K", 0.55, 0.05, 0.20),
+          _buildStackedBar("J", 0.35, 0.30, 0.10),
+          _buildStackedBar("S", 0.15, 0.15, 0.25),
+          _buildStackedBar("M", 0.50, 0.20, 0.05),
+        ],
+      );
+    } else if (_selectedTab == 1) {
+      // BULANAN (4 Minggu)
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          _buildStackedBar("M1", 0.40, 0.20, 0.10),
+          _buildStackedBar("M2", 0.25, 0.35, 0.15),
+          _buildStackedBar("M3", 0.50, 0.10, 0.20),
+          _buildStackedBar("M4", 0.30, 0.30, 0.10),
+        ],
+      );
+    } else {
+      // TAHUNAN (Bisa dibuat 12 bulan atau 6 bulan per view, kita buat representatif)
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          _buildStackedBar("J", 0.20, 0.10, 0.15),
+          _buildStackedBar("F", 0.30, 0.20, 0.10),
+          _buildStackedBar("M", 0.40, 0.15, 0.20),
+          _buildStackedBar("A", 0.25, 0.25, 0.10),
+          _buildStackedBar("M", 0.50, 0.05, 0.25),
+          _buildStackedBar("J", 0.35, 0.20, 0.15),
+        ],
+      );
+    }
+  }
+
+  Widget _buildStackedBar(String label, double darkPct, double midPct, double lightPct) {
     const double maxBarHeight = 120.0;
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        // Batang Grafik
         Container(
           width: 32,
           height: maxBarHeight,
           decoration: BoxDecoration(
-            color: const Color(
-              0xFF6E75D1,
-            ), // Warna track background (Ungu pudar)
+            color: const Color(0xFF6E75D1),
             borderRadius: BorderRadius.circular(10),
           ),
           alignment: Alignment.bottomCenter,
@@ -344,57 +417,34 @@ class _TrackingPageState extends State<TrackingPage> {
                 Container(
                   height: maxBarHeight * lightPct,
                   width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFD2CFF0),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+                  decoration: BoxDecoration(color: const Color(0xFFD2CFF0), borderRadius: BorderRadius.circular(10)),
                 ),
-              if (lightPct > 0 && (midPct > 0 || darkPct > 0))
-                const SizedBox(height: 2), // Jarak pemisah
+              if (lightPct > 0 && (midPct > 0 || darkPct > 0)) const SizedBox(height: 2),
 
               if (midPct > 0)
                 Container(
                   height: maxBarHeight * midPct,
                   width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF4D55CC),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+                  decoration: BoxDecoration(color: const Color(0xFF4D55CC), borderRadius: BorderRadius.circular(10)),
                 ),
-              if (midPct > 0 && darkPct > 0)
-                const SizedBox(height: 2), // Jarak pemisah
+              if (midPct > 0 && darkPct > 0) const SizedBox(height: 2),
 
               if (darkPct > 0)
                 Container(
                   height: maxBarHeight * darkPct,
                   width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2C265C),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+                  decoration: BoxDecoration(color: const Color(0xFF2C265C), borderRadius: BorderRadius.circular(10)),
                 ),
             ],
           ),
         ),
         const SizedBox(height: 10),
-        // Label Sumbu X (Hari)
         Container(
           width: 28,
           height: 28,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-          ),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
           alignment: Alignment.center,
-          child: Text(
-            label,
-            style: const TextStyle(
-              color: Color(0xFF4D55CC),
-              fontWeight: FontWeight.w900,
-              fontSize: 12,
-              fontFamily: 'Poppins',
-            ),
-          ),
+          child: Text(label, style: const TextStyle(color: Color(0xFF4D55CC), fontWeight: FontWeight.w900, fontSize: 12, fontFamily: 'Poppins')),
         ),
       ],
     );
@@ -402,7 +452,7 @@ class _TrackingPageState extends State<TrackingPage> {
 }
 
 // ============================================================================
-// CUSTOM PAINTER: GRAFIK DOUGHNUT DINAMIS BENTUK MEMBULAT (SANGAT PRESISI)
+// CUSTOM PAINTER (TIDAK DIUBAH)
 // ============================================================================
 class DynamicDoughnutPainter extends CustomPainter {
   final List<ChartData> dataList;
@@ -417,13 +467,13 @@ class DynamicDoughnutPainter extends CustomPainter {
     final Paint paint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round; // Membuat ujung lengkung mulus
+      ..strokeCap = StrokeCap.round; 
 
     double total = dataList.fold(0, (sum, item) => sum + item.nominal);
     if (total == 0) return;
 
-    double startAngle = -pi / 2; // Mulai memutar dari atas (Jam 12)
-    const double gapAngle = 0.40; // Jarak pemisah antar warna
+    double startAngle = -pi / 2; 
+    const double gapAngle = 0.40; 
 
     for (var item in dataList) {
       double sweepAngle = (item.nominal / total) * 2 * pi;

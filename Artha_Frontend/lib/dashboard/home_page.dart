@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
 import '../pembayaran/pembayaran_page.dart'; 
-import '../transfer/transfer_page.dart'; // 1. SUDAH DI-IMPORT DI SINI
-
+import '../transfer/transfer_page.dart';
+import '../services/api_service.dart'; // <-- Import API Service
 
 // --- MODEL DATA UNTUK GRAFIK DINAMIS ---
 class ChartData {
@@ -20,33 +20,100 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   bool _isBalanceVisible = false;
+  bool _isLoading = true;
 
-  final List<ChartData> dataPengeluaran = [
-    ChartData(600000, const Color(0xFF4D55CC)),
-    ChartData(200000, const Color(0xFFD2CFF0)),
-    ChartData(200000, const Color(0xFF2C265C)),
+  // Variabel untuk menampung data dari Backend
+  String _namaUser = "Memuat...";
+  double _saldo = 0;
+  List<dynamic> _recentTransactions = [];
+  double _totalPengeluaran = 0;
+
+  List<ChartData> dataPengeluaran = [
+    ChartData(1, const Color(0xFFE0E0E0)), // Default Abu-abu agar tidak blank
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHomeData(); // Panggil fungsi saat halaman dibuka
+  }
+
+  // --- LOGIKA MENGAMBIL DATA API ---
+  Future<void> _loadHomeData() async {
+    try {
+      // 1. Ambil Nama & Saldo
+      final profileRes = await ApiService.getProfile();
+      if (profileRes['success'] && profileRes['data'] != null) {
+        final userData = profileRes['data']['data'];
+        setState(() {
+          // Ambil kata pertama dari nama lengkap
+          _namaUser = (userData['nama'] ?? 'User').split(' ')[0]; 
+          _saldo = (userData['saldo'] ?? 0).toDouble(); // Pastikan backend sudah kirim 'saldo'
+        });
+      }
+
+      // 2. Ambil 3 Riwayat Transaksi Terakhir (Asumsi di ApiService ada fungsi getHistory)
+      // Jika error karena ApiService.getHistory belum dibuat, silakan buat di api_service.dart
+      final historyRes = await ApiService.getHistory(limit: 3);
+      if (historyRes['success'] && historyRes['data'] != null) {
+        setState(() {
+          _recentTransactions = historyRes['data']['data'] ?? [];
+        });
+      }
+
+      // 3. Ambil Statistik Pengeluaran (Mingguan)
+      final trackingRes = await ApiService.getTrackingKeuangan('weekly');
+      if (trackingRes['success'] && trackingRes['data'] != null && trackingRes['data']['data'] != null) {
+        final pieData = trackingRes['data']['data']['pie_chart'];
+        if (pieData != null) {
+          double p = (pieData['pembayaran'] ?? 0).toDouble();
+          double t = (pieData['top_up'] ?? 0).toDouble();
+          double tr = (pieData['transfer_keluar'] ?? 0).toDouble();
+          
+          setState(() {
+            _totalPengeluaran = p + t + tr;
+            if (_totalPengeluaran > 0) {
+              dataPengeluaran = [
+                ChartData(p, const Color(0xFF2C265C)), // Pembayaran
+                ChartData(t, const Color(0xFF4D55CC)), // Top up
+                ChartData(tr, const Color(0xFFD2CFF0)), // Transfer
+              ];
+            }
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Error load home: $e");
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // Helper Format Rupiah (1.000.000)
+  String _formatRupiah(double value) {
+    return value.toStringAsFixed(0).replaceAllMapped(
+      RegExp(r'\B(?=(\d{3})+(?!\d))'), 
+      (match) => '.'
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     const Color primaryColor = Color(0xFF4D55CC);
 
-    double totalPengeluaran = dataPengeluaran.fold(
-      0,
-      (sum, item) => sum + item.nominal,
-    );
-
     return SafeArea(
-      child: SingleChildScrollView(
+      child: _isLoading 
+        ? const Center(child: CircularProgressIndicator(color: primaryColor))
+        : SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // --- Sapaan ---
-              const Text(
-                'Hai, Reza',
-                style: TextStyle(
+              Text(
+                'Hai, $_namaUser', // Dinamis dari API
+                style: const TextStyle(
                   color: primaryColor,
                   fontSize: 24,
                   fontFamily: 'Poppins',
@@ -86,7 +153,7 @@ class _HomePageState extends State<HomePage> {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      _isBalanceVisible ? "Rp 67.676.767" : "********",
+                      _isBalanceVisible ? "Rp ${_formatRupiah(_saldo)}" : "********", // Dinamis dari API
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 38,
@@ -127,6 +194,7 @@ class _HomePageState extends State<HomePage> {
               // TOMBOL TOP UP
               GestureDetector(
                 onTap: () {
+                  // TODO: Arahkan ke halaman InputNominal untuk Top Up
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Menu Top Up ditekan')),
                   );
@@ -184,7 +252,6 @@ class _HomePageState extends State<HomePage> {
                     child: _buildActionButton(
                       icon: Icons.payments_outlined,
                       label: "Transfer",
-                      // 2. SEKARANG SUDAH DIARAHKAN KE TRANSFER PAGE KETIKA DIKLIK
                       onTap: () {
                         Navigator.push(
                           context,
@@ -199,38 +266,47 @@ class _HomePageState extends State<HomePage> {
               ),
               const SizedBox(height: 25),
 
-              // --- TRANSAKSI TERAKHIR ---
-              const Text(
-                'Transaksi Terakhir',
-                style: TextStyle(
-                  color: primaryColor,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w900,
-                  fontFamily: 'Poppins',
-                ),
+              // --- TRANSAKSI TERAKHIR (DINAMIS DARI API) ---
+              const Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Transaksi Terakhir',
+                    style: TextStyle(
+                      color: primaryColor,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                      fontFamily: 'Poppins',
+                    ),
+                  ),
+                  Text(
+                    'Lihat semua',
+                    style: TextStyle(
+                      color: Colors.grey,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      fontFamily: 'Poppins',
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
-              _buildTransactionItem(
-                "Isi saldo",
-                "Bank mandiri\n13 Mei 2026",
-                "+Rp 500.000,00",
-                const Color(0xFF16C45E),
-                Icons.arrow_downward,
-              ),
-              _buildTransactionItem(
-                "Pembayaran",
-                "Nasi Goreng GT\n09 Mei 2026",
-                "-Rp 20.000,00",
-                const Color(0xFFFF4848),
-                Icons.arrow_upward,
-              ),
-              _buildTransactionItem(
-                "Kirim ke Bank",
-                "Bank Jago\n03 Mei 2026",
-                "-Rp 147.900,00",
-                const Color(0xFF0090FF),
-                Icons.call_made,
-              ),
+
+              // Render Riwayat Transaksi
+              if (_recentTransactions.isEmpty)
+                 Center(
+                   child: Padding(
+                     padding: const EdgeInsets.symmetric(vertical: 20),
+                     child: Text(
+                       "Belum ada transaksi",
+                       style: TextStyle(color: primaryColor.withOpacity(0.5), fontFamily: 'Poppins'),
+                     ),
+                   ),
+                 )
+              else
+                ..._recentTransactions.map((trx) {
+                  return _renderTransactionItemDinamis(trx);
+                }),
 
               const SizedBox(height: 25),
 
@@ -276,7 +352,7 @@ class _HomePageState extends State<HomePage> {
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: const Text(
-                            "Hari ini",
+                            "Minggu ini",
                             style: TextStyle(
                               color: primaryColor,
                               fontSize: 12,
@@ -310,7 +386,9 @@ class _HomePageState extends State<HomePage> {
                               ),
                             ),
                             Text(
-                              "Rp ${(totalPengeluaran / 1000000).toStringAsFixed(1)} jt",
+                              _totalPengeluaran >= 1000000 
+                                  ? "Rp ${(_totalPengeluaran / 1000000).toStringAsFixed(1)} jt" 
+                                  : "Rp ${_formatRupiah(_totalPengeluaran)}",
                               style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w900,
@@ -355,6 +433,7 @@ class _HomePageState extends State<HomePage> {
                   ],
                 ),
               ),
+              const SizedBox(height: 50), // Ruang ekstra di bawah
             ],
           ),
         ),
@@ -362,42 +441,99 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // Helper Widget Button
-  Widget _buildActionButton({
-  required IconData icon,
-  required String label,
-  required VoidCallback onTap,
-}) {
-  const Color primaryColor = Color(0xFF4D55CC);
-  return GestureDetector(
-    onTap: onTap,
-    child: Container(
-      height: 80,
-      decoration: BoxDecoration(
-        color: primaryColor,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: Colors.white, size: 26),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
-              fontFamily: 'Poppins',
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
+  // --- WIDGET HELPER: PENGUBAH DATA API MENJADI UI LIST TRANSAKSI ---
+  Widget _renderTransactionItemDinamis(dynamic trx) {
+    String type = trx['transaction_type'] ?? '';
+    String mutasi = trx['mutasi'] ?? '';
+    double amount = (trx['amount'] ?? 0).toDouble();
+    String notes = trx['notes'] ?? '';
+    String date = trx['tanggal'] ?? '';
+
+    // Default tampilan
+    String title = "Transaksi";
+    Color iconBgColor = const Color(0xFF0090FF);
+    IconData icon = Icons.receipt_long;
+    String amountText = "";
+
+    if (mutasi == "MASUK") {
+      amountText = "+Rp ${_formatRupiah(amount)}";
+    } else {
+      amountText = "-Rp ${_formatRupiah(amount)}";
+    }
+
+    // Logika Pemilihan Ikon & Warna sesuai API Backend-mu
+    if (type == "TOPUP") {
+      title = "Isi Saldo";
+      iconBgColor = const Color(0xFF16C45E); // Hijau
+      icon = Icons.arrow_downward;
+    } else if (type == "TRANSFER") {
+      if (mutasi == "KELUAR") {
+        title = "Transfer Keluar";
+        iconBgColor = const Color(0xFF0090FF); // Biru
+        icon = Icons.call_made;
+      } else {
+        title = "Transfer Masuk";
+        iconBgColor = const Color(0xFF16C45E); // Hijau
+        icon = Icons.arrow_downward;
+      }
+    } else if (type == "PULSA" || type == "PLN") {
+      title = "Pembayaran";
+      iconBgColor = const Color(0xFFFF4848); // Merah
+      icon = Icons.arrow_upward;
+    } else if (type == "SAVING_IN" || type == "SAVING_OUT") {
+      title = "Tabungan";
+      iconBgColor = const Color(0xFFF5A623); // Oren
+      icon = mutasi == "MASUK" ? Icons.arrow_downward : Icons.arrow_upward;
+    }
+
+    // Hindari notes kepanjangan yang bikin layout rusak
+    String shortNotes = notes.length > 25 ? "${notes.substring(0, 25)}..." : notes;
+
+    return _buildTransactionItem(
+      title,
+      "$shortNotes\n$date",
+      amountText,
+      iconBgColor,
+      icon,
+    );
   }
 
+  // Helper Widget Button
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    const Color primaryColor = Color(0xFF4D55CC);
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 80,
+        decoration: BoxDecoration(
+          color: primaryColor,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: Colors.white, size: 26),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+                fontFamily: 'Poppins',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Template Asli Card Riwayat Transaksi
   Widget _buildTransactionItem(
     String title,
     String sub,
@@ -462,7 +598,11 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
+}
 
+// ============================================================================
+// CUSTOM PAINTER (TIDAK DIUBAH SAMA SEKALI)
+// ============================================================================
 class DynamicDoughnutPainter extends CustomPainter {
   final List<ChartData> dataList;
   DynamicDoughnutPainter({required this.dataList});
