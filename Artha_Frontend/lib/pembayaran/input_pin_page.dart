@@ -4,12 +4,15 @@ import '../services/api_service.dart';
 class InputPinPage extends StatefulWidget {
   final String phoneNumber;
   final double amount;
+  final bool isTransfer; // True jika ini alur Transfer
+  final String? notes;   // Catatan opsional untuk transfer
 
-  // Constructor dimodifikasi untuk menerima data pembayaran
   const InputPinPage({
     super.key,
     required this.phoneNumber,
     required this.amount,
+    this.isTransfer = false,
+    this.notes,
   });
 
   @override
@@ -40,11 +43,10 @@ class _InputPinPageState extends State<InputPinPage> {
     }
   }
 
-  // Fungsi untuk memproses pembayaran ke Backend
+  // Fungsi dinamis (Transfer / Pulsa)
   Future<void> _prosesPembayaranAPI() async {
     setState(() => _isLoading = true);
     
-    // Tampilkan loading muter-muter tanpa merusak style ui belakang
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -53,13 +55,23 @@ class _InputPinPageState extends State<InputPinPage> {
       ),
     );
 
-    final res = await ApiService.beliPulsa(
-      phoneNumber: widget.phoneNumber,
-      amount: widget.amount,
-      pin: _pin,
-    );
+    Map<String, dynamic> res;
 
-    // Tutup loading muter-muter
+    if (widget.isTransfer) {
+      res = await ApiService.transferUang(
+        receiverPhone: widget.phoneNumber,
+        amount: widget.amount,
+        pin: _pin,
+        notes: widget.notes ?? "Transfer dari Artha",
+      );
+    } else {
+      res = await ApiService.beliPulsa(
+        phoneNumber: widget.phoneNumber,
+        amount: widget.amount,
+        pin: _pin,
+      );
+    }
+
     if (mounted) {
       Navigator.pop(context); 
     }
@@ -67,20 +79,17 @@ class _InputPinPageState extends State<InputPinPage> {
     setState(() => _isLoading = false);
 
     if (res['success']) {
-      // Jika berhasil, tampilkan pesan sukses
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(res['data']['message'] ?? 'Pembayaran Berhasil!'),
+            content: Text(res['data']['message'] ?? 'Transaksi Berhasil!'),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
           ),
         );
-        // Kembali ke halaman Dashboard utama (menutup seluruh tumpukan page pembayaran)
         Navigator.of(context).popUntil((route) => route.isFirst);
       }
     } else {
-      // Jika gagal (contoh PIN salah / Saldo kurang), tampilkan error dan reset input PIN
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -90,7 +99,7 @@ class _InputPinPageState extends State<InputPinPage> {
           ),
         );
         setState(() {
-          _pin = ""; // Kosongkan PIN agar user bisa coba lagi
+          _pin = ""; 
         });
       }
     }
@@ -105,7 +114,6 @@ class _InputPinPageState extends State<InputPinPage> {
       body: SafeArea(
         child: Column(
           children: [
-            // --- HEADER (Tombol Back & Teks) ---
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 20),
               child: Column(
@@ -120,45 +128,28 @@ class _InputPinPageState extends State<InputPinPage> {
                           color: Colors.white,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(
-                          Icons.arrow_back,
-                          color: primaryColor,
-                          size: 20,
-                        ),
+                        child: const Icon(Icons.arrow_back, color: primaryColor, size: 20),
                       ),
                     ),
                   ),
                   const SizedBox(height: 40),
                   const Text(
                     "Masukan PIN",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'Poppins',
-                    ),
+                    style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold, fontFamily: 'Poppins'),
                   ),
                   const SizedBox(height: 10),
                   const Text(
                     "Gunakan PIN Artha anda.",
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 14,
-                      fontFamily: 'Poppins',
-                    ),
+                    style: TextStyle(color: Colors.white70, fontSize: 14, fontFamily: 'Poppins'),
                   ),
                 ],
               ),
             ),
-
             const SizedBox(height: 40),
-
-            // --- INDIKATOR PIN BINTANG BIASA (DINAMIS & AMAN KLIK) ---
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(6, (index) {
                 bool isFilled = index < _pin.length;
-
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 6),
                   child: Text(
@@ -172,48 +163,29 @@ class _InputPinPageState extends State<InputPinPage> {
                 );
               }),
             ),
-
             const Expanded(child: SizedBox()),
-
-            // --- NUMERIC KEYPAD (Bisa Diklik & Lancar) ---
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 30),
               child: Column(
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _buildKeypadButton("1"),
-                      _buildKeypadButton("2"),
-                      _buildKeypadButton("3"),
-                    ],
+                    children: [_buildKeypadButton("1"), _buildKeypadButton("2"), _buildKeypadButton("3")],
                   ),
                   const SizedBox(height: 15),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _buildKeypadButton("4"),
-                      _buildKeypadButton("5"),
-                      _buildKeypadButton("6"),
-                    ],
+                    children: [_buildKeypadButton("4"), _buildKeypadButton("5"), _buildKeypadButton("6")],
                   ),
                   const SizedBox(height: 15),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _buildKeypadButton("7"),
-                      _buildKeypadButton("8"),
-                      _buildKeypadButton("9"),
-                    ],
+                    children: [_buildKeypadButton("7"), _buildKeypadButton("8"), _buildKeypadButton("9")],
                   ),
                   const SizedBox(height: 15),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const SizedBox(width: 95, height: 75),
-                      _buildKeypadButton("0"),
-                      _buildBackspaceButton(),
-                    ],
+                    children: [const SizedBox(width: 95, height: 75), _buildKeypadButton("0"), _buildBackspaceButton()],
                   ),
                 ],
               ),
@@ -232,20 +204,9 @@ class _InputPinPageState extends State<InputPinPage> {
       child: Container(
         width: 95,
         height: 75,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(15),
-        ),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15)),
         child: Center(
-          child: Text(
-            value,
-            style: const TextStyle(
-              color: primaryColor,
-              fontSize: 30,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'Poppins',
-            ),
-          ),
+          child: Text(value, style: const TextStyle(color: primaryColor, fontSize: 30, fontWeight: FontWeight.bold, fontFamily: 'Poppins')),
         ),
       ),
     );
@@ -259,17 +220,8 @@ class _InputPinPageState extends State<InputPinPage> {
       child: Container(
         width: 95,
         height: 75,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(15),
-        ),
-        child: const Center(
-          child: Icon(
-            Icons.backspace_outlined,
-            color: primaryColor,
-            size: 28,
-          ),
-        ),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15)),
+        child: const Center(child: Icon(Icons.backspace_outlined, color: primaryColor, size: 28)),
       ),
     );
   }

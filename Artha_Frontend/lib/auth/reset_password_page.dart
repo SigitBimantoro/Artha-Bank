@@ -3,7 +3,7 @@ import '../services/api_service.dart';
 import 'auth_page.dart';
 
 class ResetPasswordPage extends StatefulWidget {
-  final String email; // Pastikan menggunakan email
+  final String email; 
   final String otpCode;
 
   const ResetPasswordPage({
@@ -37,7 +37,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
 
     setState(() => _isLoading = true);
     
-    // 🟢 PERBAIKAN: Gunakan parameter 'email' sesuai backend
+    // Pemanggilan API Reset Password
     final res = await ApiService.resetPassword(
       email: widget.email, 
       otp: widget.otpCode,
@@ -47,10 +47,11 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
     setState(() => _isLoading = false);
 
     if (res['success']) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(res['data']['message'] ?? "Sandi berhasil diubah!"), backgroundColor: Colors.green),
       );
-      if (!mounted) return;
+      
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (context) => const AuthPage(isLoginInitial: true)),
@@ -62,6 +63,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
   }
 
   void _showError(String msg) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(msg), backgroundColor: Colors.red),
     );

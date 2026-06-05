@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
@@ -8,9 +9,82 @@ class EditProfilePage extends StatefulWidget {
 }
 
 class _EditProfilePageState extends State<EditProfilePage> {
-  final TextEditingController _namaController = TextEditingController(text: "Reza Hafafi");
-  final TextEditingController _emailController = TextEditingController(text: "Hafafi@gmail.com");
-  final TextEditingController _phoneController = TextEditingController(text: "0812345678910");
+  final TextEditingController _namaController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  
+  bool _isLoading = true;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfileData();
+  }
+
+  // Menarik data user saat ini sebelum diedit
+  Future<void> _loadProfileData() async {
+    final res = await ApiService.getProfile();
+    if (mounted) {
+      setState(() {
+        if (res['success']) {
+          final data = res['data']['data'];
+          _namaController.text = data['nama'] ?? '';
+          _emailController.text = data['email'] ?? '';
+          _phoneController.text = data['phone_number'] ?? '';
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(res['message'] ?? 'Gagal memuat data'), backgroundColor: Colors.red),
+          );
+        }
+        _isLoading = false;
+      });
+    }
+  }
+
+  // Fungsi untuk mengirim data baru ke backend
+  Future<void> _simpanPerubahan() async {
+    if (_namaController.text.isEmpty || _emailController.text.isEmpty || _phoneController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Semua kolom harus diisi!'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    final res = await ApiService.updateProfile(
+      nama: _namaController.text,
+      email: _emailController.text,
+      phoneNumber: _phoneController.text,
+    );
+
+    setState(() => _isSaving = false);
+
+    if (res['success']) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profil berhasil diperbarui!'), backgroundColor: Colors.green),
+        );
+        // Mengembalikan nilai 'true' ke ProfilePage agar ProfilePage melakukan refresh data
+        Navigator.pop(context, true); 
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(res['message'] ?? 'Gagal memperbarui profil'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _namaController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,8 +125,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ),
             ),
 
+            // --- AREA FORM KONTEN ---
             Expanded(
-              child: SingleChildScrollView(
+              child: _isLoading 
+                ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                : SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
                 child: Column(
                   children: [
@@ -99,16 +176,16 @@ class _EditProfilePageState extends State<EditProfilePage> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 25),
               child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context); // Kembali dan simpan
-                },
+                onPressed: _isSaving || _isLoading ? null : _simpanPerubahan,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryColor,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   elevation: 0,
                 ),
-                child: const Text(
+                child: _isSaving 
+                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Text(
                   "Simpan perubahan",
                   style: TextStyle(
                     color: Colors.white,
@@ -125,6 +202,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
   }
 
+  // Widget Helper Form Input persis seperti aslinya
   Widget _buildEditField(String label, TextEditingController controller, {bool isNumber = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

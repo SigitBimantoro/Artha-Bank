@@ -22,7 +22,13 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     }
 
     setState(() => _isLoading = true);
-final res = await ApiService.requestForgotPassword(email: _emailController.text.trim());    setState(() => _isLoading = false);
+    
+    // Pemanggilan API Request Lupa Password
+    final res = await ApiService.requestForgotPassword(
+      email: _emailController.text.trim(),
+    );    
+    
+    setState(() => _isLoading = false);
 
     if (res['success']) {
       if (!mounted) return;
@@ -33,6 +39,7 @@ final res = await ApiService.requestForgotPassword(email: _emailController.text.
         ),
       );
     } else {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(res['message']), backgroundColor: Colors.red),
       );
