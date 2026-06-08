@@ -41,7 +41,12 @@ class _InputNominalPageState extends State<InputNominalPage> {
         ),
         title: const Text(
           "Nominal Transfer",
-          style: TextStyle(color: Colors.white, fontFamily: 'Poppins', fontSize: 18, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: Colors.white,
+            fontFamily: 'Poppins',
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
       body: Padding(
@@ -61,32 +66,78 @@ class _InputNominalPageState extends State<InputNominalPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text("Penerima", style: TextStyle(color: Colors.grey, fontSize: 12, fontFamily: 'Poppins')),
+                  const Text(
+                    "Penerima",
+                    style: TextStyle(
+                      color: Colors.grey,
+                      fontSize: 12,
+                      fontFamily: 'Poppins',
+                    ),
+                  ),
                   const SizedBox(height: 5),
-                  Text(widget.receiverName, style: const TextStyle(color: primaryColor, fontSize: 16, fontWeight: FontWeight.bold, fontFamily: 'Poppins')),
-                  Text(widget.receiverPhone, style: const TextStyle(color: primaryColor, fontSize: 14, fontFamily: 'Poppins')),
+                  Text(
+                    widget.receiverName,
+                    style: const TextStyle(
+                      color: primaryColor,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Poppins',
+                    ),
+                  ),
+                  Text(
+                    widget.receiverPhone,
+                    style: const TextStyle(
+                      color: primaryColor,
+                      fontSize: 14,
+                      fontFamily: 'Poppins',
+                    ),
+                  ),
                 ],
               ),
             ),
             const SizedBox(height: 30),
 
             // Input Nominal
-            const Text("Nominal (Rp)", style: TextStyle(color: primaryColor, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Poppins')),
+            const Text(
+              "Nominal (Rp)",
+              style: TextStyle(
+                color: primaryColor,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Poppins',
+              ),
+            ),
             const SizedBox(height: 10),
             TextField(
               controller: _amountController,
               keyboardType: TextInputType.number,
-              style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: primaryColor),
+              style: const TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: primaryColor,
+              ),
               decoration: InputDecoration(
                 hintText: "0",
-                border: UnderlineInputBorder(borderSide: BorderSide(color: primaryColor.withOpacity(0.5))),
-                focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: primaryColor, width: 2)),
+                border: UnderlineInputBorder(
+                  borderSide: BorderSide(color: primaryColor.withOpacity(0.5)),
+                ),
+                focusedBorder: const UnderlineInputBorder(
+                  borderSide: BorderSide(color: primaryColor, width: 2),
+                ),
               ),
             ),
             const SizedBox(height: 30),
 
             // Input Catatan (Opsional)
-            const Text("Catatan (Opsional)", style: TextStyle(color: primaryColor, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Poppins')),
+            const Text(
+              "Catatan (Opsional)",
+              style: TextStyle(
+                color: primaryColor,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Poppins',
+              ),
+            ),
             const SizedBox(height: 10),
             TextField(
               controller: _notesController,
@@ -94,7 +145,10 @@ class _InputNominalPageState extends State<InputNominalPage> {
                 hintText: "Contoh: Bayar hutang makan",
                 filled: true,
                 fillColor: Colors.white,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                  borderSide: BorderSide.none,
+                ),
               ),
             ),
 
@@ -106,19 +160,27 @@ class _InputNominalPageState extends State<InputNominalPage> {
               height: 55,
               child: ElevatedButton(
                 onPressed: () {
-                  if (_amountController.text.isEmpty || double.parse(_amountController.text) <= 0) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Masukkan nominal yang valid!'), backgroundColor: Colors.red));
+                  final amount = double.tryParse(
+                    _amountController.text.replaceAll('.', ''),
+                  );
+                  if (amount == null || amount <= 0) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Masukkan nominal yang valid!'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
                     return;
                   }
-                  
+
                   // Lanjut ke halaman PIN Transfer
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => InputPinPage(
                         phoneNumber: widget.receiverPhone,
-                        amount: double.parse(_amountController.text),
-                       type: 'TRANSFER', 
+                        amount: amount,
+                        type: 'TRANSFER',
                         notes: _notesController.text,
                       ),
                     ),
@@ -126,11 +188,21 @@ class _InputNominalPageState extends State<InputNominalPage> {
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryColor,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(25),
+                  ),
                 ),
-                child: const Text("Lanjutkan", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, fontFamily: 'Poppins')),
+                child: const Text(
+                  "Lanjutkan",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'Poppins',
+                  ),
+                ),
               ),
-            )
+            ),
           ],
         ),
       ),

@@ -3,20 +3,41 @@ package services
 import (
 	"fmt"
 	"net/smtp"
+	"os"
 )
 
-// TODO: Ganti dengan Email-mu dan 16-Digit App Password yang baru saja kamu buat
 const (
-	smtpHost    = "smtp.gmail.com"
-	smtpPort    = "587"
-	senderEmail = "mrezahaffafi@gmail.com" // Contoh: artha.app@gmail.com
-	senderPass  = "navi trok sufp xked" // Masukkan 16 digit tanpa spasi
+	smtpHost = "smtp.gmail.com"
+	smtpPort = "587"
 )
+
+func getSMTPConfig() (string, string, string, string, error) {
+	senderEmail := os.Getenv("SMTP_SENDER_EMAIL")
+	senderPass := os.Getenv("SMTP_SENDER_PASSWORD")
+	host := os.Getenv("SMTP_HOST")
+	port := os.Getenv("SMTP_PORT")
+
+	if senderEmail == "" || senderPass == "" {
+		return "", "", "", "", fmt.Errorf("SMTP credentials belum dikonfigurasi. Set SMTP_SENDER_EMAIL dan SMTP_SENDER_PASSWORD")
+	}
+	if host == "" {
+		host = smtpHost
+	}
+	if port == "" {
+		port = smtpPort
+	}
+	return host, port, senderEmail, senderPass, nil
+}
 
 // Fungsi untuk mengirim email OTP
 func KirimEmailOTP(tujuanEmail string, kodeOTP string) error {
-	// Otentikasi ke server Gmail
-	auth := smtp.PlainAuth("", senderEmail, senderPass, smtpHost)
+	host, port, senderEmail, senderPass, err := getSMTPConfig()
+	if err != nil {
+		return err
+	}
+
+	// Otentikasi ke server SMTP
+	auth := smtp.PlainAuth("", senderEmail, senderPass, host)
 
 	// Membuat format isi email (Kita pakai HTML agar tampilannya cantik seperti startup)
 	headerTo := fmt.Sprintf("To: %s\r\n", tujuanEmail)
@@ -40,6 +61,6 @@ func KirimEmailOTP(tujuanEmail string, kodeOTP string) error {
 	msg := []byte(headerTo + headerSubj + headerMime + body)
 
 	// Kirim email
-	err := smtp.SendMail(smtpHost+":"+smtpPort, auth, senderEmail, []string{tujuanEmail}, msg)
+	err = smtp.SendMail(host+":"+port, auth, senderEmail, []string{tujuanEmail}, msg)
 	return err
 }

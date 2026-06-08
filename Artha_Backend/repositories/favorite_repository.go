@@ -15,6 +15,16 @@ func NewFavoriteRepository(db *gorm.DB) *FavoriteRepository {
 }
 
 func (r *FavoriteRepository) Create(favorite *models.FavoriteAccount) error {
+	if favorite.BankName == "" {
+		favorite.BankName = "Artha Bank"
+	}
+	if favorite.AccountNumber == "" {
+		favorite.AccountNumber = favorite.RecipientPhone
+	}
+	if favorite.AccountName == "" {
+		favorite.AccountName = favorite.RecipientName
+	} // Tambahkan ini
+
 	return r.db.Create(favorite).Error
 }
 

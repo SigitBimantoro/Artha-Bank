@@ -63,7 +63,11 @@ func (hc *HistoryController) GetRiwayatTransaksi(c *gin.Context) {
 	var formatRiwayat []gin.H
 	for _, trx := range riwayat {
 		tipeMutasi := "KELUAR"
-		if trx.ReceiverID == userID {
+		if trx.TransactionType == "TOPUP" || trx.TransactionType == "SAVING_OUT" {
+			tipeMutasi = "MASUK"
+		} else if trx.TransactionType == "PULSA" || trx.TransactionType == "PLN" || trx.TransactionType == "SAVING_IN" {
+			tipeMutasi = "KELUAR"
+		} else if trx.ReceiverID == userID {
 			tipeMutasi = "MASUK" // Jika dia penerimanya, berarti uang masuk
 		}
 
@@ -92,7 +96,8 @@ func (hc *HistoryController) GetRiwayatTransaksi(c *gin.Context) {
 
 func (hc *HistoryController) buildTrackingKeuangan(userID uint, period string) (RincianKategori, []GrafikBatang, float64, error) {
 	var startDate time.Time
-	now := time.Now().UTC()
+	// PERBAIKAN 1: Gunakan waktu lokal agar sesuai dengan zona waktu database (WIB)
+	now := time.Now()
 
 	var barChart []GrafikBatang
 
@@ -129,12 +134,20 @@ func (hc *HistoryController) buildTrackingKeuangan(userID uint, period string) (
 	var grandTotal float64
 
 	for _, trx := range riwayat {
-		isPembayaran := trx.SenderID == userID && (trx.TransactionType == "PULSA" || trx.TransactionType == "PLN")
-		isTopUp := trx.ReceiverID == userID && trx.TransactionType == "TOPUP"
-		isTransferKeluar := trx.SenderID == userID && trx.TransactionType == "TRANSFER"
-		isTransferMasuk := trx.ReceiverID == userID && trx.TransactionType == "TRANSFER"
+		// PERBAIKAN 2: Paksa semua tipe transaksi jadi huruf besar agar aman dari typo di DB
+		trxType := strings.ToUpper(trx.TransactionType)
 
-		grandTotal += trx.Amount
+		isPembayaran := trx.SenderID == userID && (trxType == "PULSA" || trxType == "PLN" || trxType == "PEMBAYARAN")
+		// PERBAIKAN 3: Longgarkan syarat Top Up agar terbaca (entah user sebagai penerima/pengirim)
+		isTopUp := trxType == "TOPUP"
+		isTransferKeluar := trx.SenderID == userID && trxType == "TRANSFER"
+		isTransferMasuk := trx.ReceiverID == userID && trxType == "TRANSFER"
+
+		// Tambahkan ke Total jika ini adalah uang keluar (pengeluaran) atau topup
+		if isPembayaran || isTopUp || isTransferKeluar {
+			grandTotal += trx.Amount
+		}
+
 		if isPembayaran {
 			pieChart.Pembayaran += trx.Amount
 		} else if isTopUp {
@@ -150,7 +163,7 @@ func (hc *HistoryController) buildTrackingKeuangan(userID uint, period string) (
 			wd := int(trx.CreatedAt.Weekday())
 			idx = wd - 1
 			if idx < 0 {
-				idx = 6
+				idx = 6 // Hari Minggu diletakkan di akhir (index 6)
 			}
 		} else if period == "monthly" {
 			day := trx.CreatedAt.Day()

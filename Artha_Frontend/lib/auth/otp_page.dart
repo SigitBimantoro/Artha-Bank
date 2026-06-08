@@ -46,8 +46,9 @@ class _OtpPageState extends State<OtpPage> {
   }
 
   void _onDelete() {
-    if (otpCode.isNotEmpty)
+    if (otpCode.isNotEmpty) {
       setState(() => otpCode = otpCode.substring(0, otpCode.length - 1));
+    }
   }
 
   @override
@@ -310,12 +311,13 @@ class _OtpPageState extends State<OtpPage> {
   Widget _buildNumRow(List<String> values) {
     return Row(
       children: values.map((val) {
-        if (val == 'delete')
+        if (val == 'delete') {
           return _numButton(
             const Icon(Icons.backspace_outlined, size: 24),
             _onDelete,
           );
-        if (val == '* #')
+        }
+        if (val == '* #') {
           return _numButton(
             const Text(
               '* #',
@@ -323,6 +325,7 @@ class _OtpPageState extends State<OtpPage> {
             ),
             () {},
           );
+        }
         return _numButton(
           Text(
             val,

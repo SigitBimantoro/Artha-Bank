@@ -4,7 +4,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   // Gunakan 10.0.2.2 untuk emulator Android, atau IP fisik jika pakai HP
-  static const String baseUrl = 'http://192.168.18.79:8080/api';
+  static const String serverUrl = 'http://10.0.2.2:8080';
+  static const String baseUrl = 'http://10.0.2.2:8080/api';
+
+  static String resolveMediaUrl(String? path) {
+    if (path == null || path.isEmpty) return '';
+    if (path.startsWith('http://') || path.startsWith('https://')) return path;
+    final normalizedPath = path.startsWith('/') ? path : '/$path';
+    return '$serverUrl$normalizedPath';
+  }
 
   // ======================================================================
   // HELPER: TOKEN & HEADERS
@@ -16,9 +24,7 @@ class ApiService {
 
   static Future<Map<String, String>> _getHeaders({String? pin}) async {
     final token = await getToken();
-    Map<String, String> headers = {
-      'Content-Type': 'application/json',
-    };
+    Map<String, String> headers = {'Content-Type': 'application/json'};
     if (token != null) {
       headers['Authorization'] = 'Bearer $token';
     }
@@ -27,8 +33,6 @@ class ApiService {
     }
     return headers;
   }
-
-
 
   static Future<Map<String, dynamic>> register({
     required String nama,
@@ -98,9 +102,7 @@ class ApiService {
   }
 
   // Dipanggil dari otp_page.dart sebagai ApiService.resendOTP(...)
-  static Future<Map<String, dynamic>> resendOTP({
-    required String email,
-  }) async {
+  static Future<Map<String, dynamic>> resendOTP({required String email}) async {
     try {
       final body = jsonEncode({"email": email});
       final response = await http.post(
@@ -230,6 +232,29 @@ class ApiService {
     }
   }
 
+  static Future<Map<String, dynamic>> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmNewPassword,
+  }) async {
+    try {
+      final headers = await _getHeaders();
+      final body = jsonEncode({
+        "current_password": currentPassword,
+        "new_password": newPassword,
+        "confirm_new_password": confirmNewPassword,
+      });
+      final response = await http.post(
+        Uri.parse('$baseUrl/change-password'),
+        headers: headers,
+        body: body,
+      );
+      return _processResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
   // ======================================================================
   // 3. PROFILE
   // GET /api/profile  (protected)
@@ -269,8 +294,9 @@ class ApiService {
       if (email.isNotEmpty) request.fields['email'] = email;
       if (phoneNumber.isNotEmpty) request.fields['phone_number'] = phoneNumber;
       if (photoPath != null && photoPath.isNotEmpty) {
-        request.files
-            .add(await http.MultipartFile.fromPath('photo', photoPath));
+        request.files.add(
+          await http.MultipartFile.fromPath('photo', photoPath),
+        );
       }
 
       final streamedResponse = await request.send();
@@ -316,11 +342,14 @@ class ApiService {
   ) async {
     try {
       final headers = await _getHeaders(pin: pin);
+      print('[DEBUG] Transfer headers: $headers');
+      print('[DEBUG] Transfer pin length: ${pin.length}');
       final body = jsonEncode({
         "receiver_phone": receiverPhone,
         "amount": amount,
         "notes": notes,
       });
+      print('[DEBUG] Transfer request body: $body');
       final response = await http.post(
         Uri.parse('$baseUrl/transfer'),
         headers: headers,
@@ -328,7 +357,9 @@ class ApiService {
       );
       return _processResponse(response);
     } catch (e) {
-      return {'success': false, 'message': e.toString()};
+      print('[DEBUG] Transfer error: $e');
+      print('[DEBUG] Error type: ${e.runtimeType}');
+      return {'success': false, 'message': 'Network error: ${e.toString()}'};
     }
   }
 
@@ -404,9 +435,7 @@ class ApiService {
   }
 
   /// [period] : "weekly" | "monthly" | "yearly"
-  static Future<Map<String, dynamic>> getTrackingKeuangan(
-    String period,
-  ) async {
+  static Future<Map<String, dynamic>> getTrackingKeuangan(String period) async {
     try {
       final headers = await _getHeaders();
       final response = await http.get(
@@ -444,14 +473,16 @@ class ApiService {
   static Future<Map<String, dynamic>> createSaving({
     required String namaTarget,
     required double targetNominal,
+    double autoDebitNominal = 0,
+    String autoDebitPeriode = 'NONE',
   }) async {
     try {
       final headers = await _getHeaders();
       final body = jsonEncode({
         "nama_target": namaTarget,
         "target_nominal": targetNominal,
-        "auto_debit_nominal": 0,
-        "auto_debit_periode": "NONE",
+        "auto_debit_nominal": autoDebitNominal,
+        "auto_debit_periode": autoDebitPeriode,
       });
       final response = await http.post(
         Uri.parse('$baseUrl/savings'),
@@ -477,6 +508,28 @@ class ApiService {
       });
       final response = await http.put(
         Uri.parse('$baseUrl/savings/$id'),
+        headers: headers,
+        body: body,
+      );
+      return _processResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  static Future<Map<String, dynamic>> updateSavingAutoDebit({
+    required int id,
+    required double autoDebitNominal,
+    required String autoDebitPeriode,
+  }) async {
+    try {
+      final headers = await _getHeaders();
+      final body = jsonEncode({
+        "auto_debit_nominal": autoDebitNominal,
+        "auto_debit_periode": autoDebitPeriode,
+      });
+      final response = await http.put(
+        Uri.parse('$baseUrl/savings/$id/auto-debit'),
         headers: headers,
         body: body,
       );
@@ -579,6 +632,8 @@ class ApiService {
   // ======================================================================
   static Map<String, dynamic> _processResponse(http.Response response) {
     try {
+      print('[DEBUG] Response status code: ${response.statusCode}');
+      print('[DEBUG] Response body: ${response.body}');
       final decoded = jsonDecode(response.body);
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return {'success': true, 'data': decoded};
@@ -589,7 +644,28 @@ class ApiService {
         };
       }
     } catch (e) {
-      return {'success': false, 'message': 'Gagal memproses data dari server'};
+      print('[DEBUG] Response processing error: $e');
+      return {
+        'success': false,
+        'message': response.body.isNotEmpty
+            ? response.body
+            : 'Gagal memproses data dari server',
+      };
+    }
+  }
+
+  static Future<List<int>> downloadPDFReport(String period) async {
+    final token = await getToken();
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/history/summary/pdf?period=$period'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+
+    if (response.statusCode == 200) {
+      return response.bodyBytes; // HARUS bodyBytes (B kapital)
+    } else {
+      throw Exception('Failed to load PDF');
     }
   }
 }

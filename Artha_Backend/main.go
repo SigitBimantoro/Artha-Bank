@@ -9,6 +9,8 @@ import (
 	"artha/routes"
 	"artha/services"
 
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/robfig/cron/v3"
 )
@@ -28,6 +30,22 @@ func main() {
 	favoriteHandler := handlers.NewFavoriteHandler(favoriteService)
 
 	r := gin.Default()
+
+	// CORS Middleware
+	r.Use(func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		// Allow custom headers used by Flutter client (e.g. X-PIN) and Authorization
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, X-PIN, accept, origin, Cache-Control, X-Requested-With")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE, PATCH")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+		c.Next()
+	})
+
 	r.Static("/uploads", "./uploads")
 	routes.SetupRoutes(r, authController, transactionController, historyController, savingController, favoriteHandler)
 	c := cron.New()

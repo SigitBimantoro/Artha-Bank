@@ -17,12 +17,17 @@ type CreateSavingReq struct {
 	NamaTarget       string  `json:"nama_target" binding:"required"`
 	TargetNominal    float64 `json:"target_nominal" binding:"required,min=10000"`
 	AutoDebitNominal float64 `json:"auto_debit_nominal"`
-	AutoDebitPeriode string  `json:"auto_debit_periode"` 
+	AutoDebitPeriode string  `json:"auto_debit_periode"`
 }
 
 type UpdateSavingReq struct {
 	NamaTarget    string  `json:"nama_target" binding:"required"`
 	TargetNominal float64 `json:"target_nominal" binding:"required,min=10000"`
+}
+
+type UpdateAutoDebitReq struct {
+	AutoDebitNominal float64 `json:"auto_debit_nominal"`
+	AutoDebitPeriode string  `json:"auto_debit_periode"`
 }
 
 // 1. LIHAT DAFTAR TABUNGAN
@@ -50,13 +55,13 @@ func (sc *SavingController) CreateSaving(c *gin.Context) {
 	userID := userIDContext.(uint)
 
 	var req CreateSavingReq
-	if req.AutoDebitPeriode == "" || req.AutoDebitNominal <= 0 {
-		req.AutoDebitPeriode = "NONE"
-		req.AutoDebitNominal = 0
-	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Format salah. Pastikan nama terisi dan target minimal Rp 10.000"})
 		return
+	}
+	if req.AutoDebitPeriode == "" || req.AutoDebitNominal <= 0 {
+		req.AutoDebitPeriode = "NONE"
+		req.AutoDebitNominal = 0
 	}
 
 	// Cek apakah user sudah punya 3 tabungan
@@ -107,11 +112,50 @@ func (sc *SavingController) UpdateSaving(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Tabungan berhasil diperbarui!", "data": saving})
 }
 
+// 4. UPDATE PENGATURAN AUTO-DEBIT
+func (sc *SavingController) UpdateAutoDebit(c *gin.Context) {
+	userIDContext, _ := c.Get("userID")
+	userID := userIDContext.(uint)
+	savingID := c.Param("id")
+
+	var req UpdateAutoDebitReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Data auto-debit tidak valid"})
+		return
+	}
+
+	if req.AutoDebitPeriode == "" {
+		req.AutoDebitPeriode = "NONE"
+	}
+	if req.AutoDebitPeriode == "NONE" {
+		req.AutoDebitNominal = 0
+	} else if req.AutoDebitNominal < 1000 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Minimal nominal auto-debit adalah Rp 1.000"})
+		return
+	}
+
+	var saving models.Saving
+	if err := sc.DB.Where("saving_id = ? AND user_id = ?", savingID, userID).First(&saving).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Tabungan tidak ditemukan"})
+		return
+	}
+
+	saving.AutoDebitNominal = req.AutoDebitNominal
+	saving.AutoDebitPeriode = req.AutoDebitPeriode
+
+	if err := sc.DB.Save(&saving).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan pengaturan auto-debit"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Pengaturan auto-debit berhasil diperbarui", "data": saving})
+}
+
 type TransaksiSavingReq struct {
 	Amount float64 `json:"amount" binding:"required,min=1000"`
 }
 
-// 4. NABUNG (Pindah Uang: Dompet -> Tabungan)
+// 5. NABUNG (Pindah Uang: Dompet -> Tabungan)
 func (sc *SavingController) AddSaldo(c *gin.Context) {
 	userIDContext, _ := c.Get("userID")
 	userID := userIDContext.(uint)
@@ -163,7 +207,7 @@ func (sc *SavingController) AddSaldo(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Berhasil menabung!", "saldo_tabungan": saving.SaldoTerkumpul})
 }
 
-// 5. CAIRKAN FLEKSIBEL (Pindah Uang: Tabungan -> Dompet)
+// 6. CAIRKAN FLEKSIBEL (Pindah Uang: Tabungan -> Dompet)
 func (sc *SavingController) TarikSaldo(c *gin.Context) {
 	userIDContext, _ := c.Get("userID")
 	userID := userIDContext.(uint)

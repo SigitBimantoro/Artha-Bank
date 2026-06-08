@@ -33,6 +33,7 @@ type PLNReq struct {
 	MeterNumber string  `json:"meter_number" binding:"required"`
 	Amount      float64 `json:"amount" binding:"required,gt=0"`
 }
+
 // Fungsi Eksekusi Top Up
 func (tc *TransactionController) TopUpInternal(c *gin.Context) {
 	// 1. Ambil UserID dari Middleware JWT
@@ -73,15 +74,21 @@ func (tc *TransactionController) TopUpInternal(c *gin.Context) {
 
 	newLog := models.Transaction{
 		TransactionType: "TOPUP",
-		SenderID:        0, 
+		SenderID:        userID,
 		ReceiverID:      userID,
 		Amount:          req.Amount,
 		Notes:           catatanTopUp, // 👈 Hasilnya: "Top Up via Indomaret"
 	}
-	
+
 	if err := tx.Create(&newLog).Error; err != nil {
 		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mencatat riwayat mutasi"})
+		return
+	}
+
+	if err := tc.processAutoDebitAfterTopUp(tx, userID, &dompet); err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -90,10 +97,59 @@ func (tc *TransactionController) TopUpInternal(c *gin.Context) {
 
 	// 8. Berikan Balasan ke Flutter
 	c.JSON(http.StatusOK, gin.H{
-		"message":        "Top up berhasil diproses", 
+		"message":        "Top up berhasil diproses",
 		"metode":         req.Metode,
 		"saldo_sekarang": dompet.Saldo,
 	})
+}
+
+func (tc *TransactionController) processAutoDebitAfterTopUp(tx *gorm.DB, userID uint, wallet *models.Wallet) error {
+	var savings []models.Saving
+	if err := tx.Where("user_id = ? AND auto_debit_periode != ? AND auto_debit_nominal > 0", userID, "NONE").Find(&savings).Error; err != nil {
+		return err
+	}
+
+	for _, saving := range savings {
+		if wallet.Saldo <= 0 {
+			break
+		}
+
+		remainingTarget := saving.TargetNominal - saving.SaldoTerkumpul
+		if remainingTarget <= 0 {
+			continue
+		}
+
+		autoAmount := saving.AutoDebitNominal
+		if autoAmount > remainingTarget {
+			autoAmount = remainingTarget
+		}
+		if autoAmount > wallet.Saldo {
+			continue
+		}
+
+		wallet.Saldo -= autoAmount
+		saving.SaldoTerkumpul += autoAmount
+
+		if err := tx.Save(wallet).Error; err != nil {
+			return err
+		}
+		if err := tx.Save(&saving).Error; err != nil {
+			return err
+		}
+
+		catatan := "Auto-Debit Top Up ke Wishlist: " + saving.NamaTarget
+		if err := tx.Create(&models.Transaction{
+			TransactionType: "SAVING_IN",
+			SenderID:        userID,
+			ReceiverID:      userID,
+			Amount:          autoAmount,
+			Notes:           catatan,
+		}).Error; err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (tc *TransactionController) TransferUang(c *gin.Context) {
@@ -185,9 +241,9 @@ func (tc *TransactionController) TransferUang(c *gin.Context) {
 
 	// K. Beri Balasan Sukses
 	c.JSON(http.StatusOK, gin.H{
-		"message":     "Transfer berhasil diproses!",
-		"sisa_saldo":  senderWallet.Saldo,
-		"penerima":    receiver.Nama,
+		"message":    "Transfer berhasil diproses!",
+		"sisa_saldo": senderWallet.Saldo,
+		"penerima":   receiver.Nama,
 	})
 }
 
@@ -200,7 +256,7 @@ func generateTokenPLN() string {
 	for i := 0; i < 20; i++ {
 		// Tambahkan angka acak 0-9
 		token += strconv.Itoa(r.Intn(10))
-		
+
 		// Jika sudah 4 angka dan bukan angka terakhir, tambahkan spasi
 		if (i+1)%4 == 0 && i != 19 {
 			token += " "
@@ -208,6 +264,7 @@ func generateTokenPLN() string {
 	}
 	return token
 }
+
 // ==========================================
 // FITUR PEMBELIAN PULSA
 // ==========================================
@@ -244,7 +301,7 @@ func (tc *TransactionController) BeliPulsa(c *gin.Context) {
 	newLog := models.Transaction{
 		TransactionType: "PULSA",
 		SenderID:        userID,
-		ReceiverID:      0, 
+		ReceiverID:      userID,
 		Amount:          req.Amount,
 		Notes:           "Pembelian Pulsa untuk nomor " + req.PhoneNumber,
 	}
@@ -296,7 +353,7 @@ func (tc *TransactionController) BeliTokenListrik(c *gin.Context) {
 	newLog := models.Transaction{
 		TransactionType: "PLN",
 		SenderID:        userID,
-		ReceiverID:      0,
+		ReceiverID:      userID,
 		Amount:          req.Amount,
 		Notes:           "Token Listrik: " + tokenPLN,
 	}
@@ -305,8 +362,8 @@ func (tc *TransactionController) BeliTokenListrik(c *gin.Context) {
 
 	// Balasan ke Flutter (Mengirimkan token agar bisa ditampilkan di layar besar-besar)
 	c.JSON(http.StatusOK, gin.H{
-		"message":      "Pembelian Token Listrik berhasil!",
+		"message":       "Pembelian Token Listrik berhasil!",
 		"token_listrik": tokenPLN,
-		"sisa_saldo":   wallet.Saldo,
+		"sisa_saldo":    wallet.Saldo,
 	})
 }
