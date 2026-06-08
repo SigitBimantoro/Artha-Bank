@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
 
 class KonfirmasiPinPage extends StatefulWidget {
   final String newPin;
@@ -10,24 +11,63 @@ class KonfirmasiPinPage extends StatefulWidget {
 
 class _KonfirmasiPinPageState extends State<KonfirmasiPinPage> {
   final TextEditingController _confirmPinController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  bool _isLoading = false;
 
   @override
   void dispose() {
     _confirmPinController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
-  void _simpanPin() {
-    if (_confirmPinController.text == widget.newPin) {
-      // TODO: Panggil API Backend (Ganti PIN) di sini
+  Future<void> _simpanPin() async {
+    if (_confirmPinController.text != widget.newPin) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("PIN Berhasil diubah!"), backgroundColor: Colors.green),
+        const SnackBar(
+          content: Text("Konfirmasi PIN tidak cocok!"),
+          backgroundColor: Colors.red,
+        ),
       );
-      Navigator.popUntil(context, (route) => route.isFirst); // Kembali ke Dashboard/Profil
+      _confirmPinController.clear();
+      setState(() {});
+      return;
+    }
+
+    if (_passwordController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Masukkan password akun Anda untuk konfirmasi."),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    final res = await ApiService.changePin(
+      _passwordController.text,
+      widget.newPin,
+      _confirmPinController.text,
+    );
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    if (res['success'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("PIN Berhasil diubah!"),
+          backgroundColor: Colors.green,
+        ),
+      );
+      Navigator.popUntil(context, (route) => route.isFirst);
     } else {
+      final message =
+          res['message'] ?? 'Gagal mengubah PIN. Silakan coba lagi.';
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Konfirmasi PIN tidak cocok!"), backgroundColor: Colors.red),
+        SnackBar(content: Text(message), backgroundColor: Colors.red),
       );
+      _passwordController.clear();
       _confirmPinController.clear();
       setState(() {});
     }
@@ -56,7 +96,11 @@ class _KonfirmasiPinPageState extends State<KonfirmasiPinPage> {
                         color: primaryColor,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+                      child: const Icon(
+                        Icons.arrow_back,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                     ),
                   ),
                   const Expanded(
@@ -72,7 +116,7 @@ class _KonfirmasiPinPageState extends State<KonfirmasiPinPage> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 40), 
+                  const SizedBox(width: 40),
                 ],
               ),
               const SizedBox(height: 50),
@@ -97,7 +141,9 @@ class _KonfirmasiPinPageState extends State<KonfirmasiPinPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: List.generate(6, (index) {
-                        String char = _confirmPinController.text.length > index ? _confirmPinController.text[index] : "";
+                        String char = _confirmPinController.text.length > index
+                            ? _confirmPinController.text[index]
+                            : "";
                         return Container(
                           width: 45,
                           height: 55,
@@ -124,19 +170,19 @@ class _KonfirmasiPinPageState extends State<KonfirmasiPinPage> {
                         );
                       }),
                     ),
-                    
+
                     // 2. TEXTFIELD ASLI (DI ATAS, TRANSPARAN PENUH)
                     Positioned.fill(
                       child: TextField(
                         controller: _confirmPinController,
                         keyboardType: TextInputType.number,
                         maxLength: 6,
-                        autofocus: true, 
-                        showCursor: false, 
-                        enableInteractiveSelection: false, 
+                        autofocus: true,
+                        showCursor: false,
+                        enableInteractiveSelection: false,
                         style: const TextStyle(
-                          color: Colors.transparent, 
-                          fontSize: 1, 
+                          color: Colors.transparent,
+                          fontSize: 1,
                         ),
                         decoration: const InputDecoration(
                           border: InputBorder.none,
@@ -149,28 +195,53 @@ class _KonfirmasiPinPageState extends State<KonfirmasiPinPage> {
                   ],
                 ),
               ),
-              const SizedBox(height: 50),
+              const SizedBox(height: 20),
+              TextField(
+                controller: _passwordController,
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: 'Password Akun',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 30),
 
               // --- TOMBOL SIMPAN ---
               SizedBox(
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: _confirmPinController.text.length == 6 ? _simpanPin : null,
+                  onPressed:
+                      !_isLoading && _confirmPinController.text.length == 6
+                      ? _simpanPin
+                      : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryColor,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(25),
+                    ),
                     elevation: 0,
                   ),
-                  child: const Text(
-                    "Simpan PIN",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      fontFamily: 'Poppins',
-                    ),
-                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text(
+                          "Simpan PIN",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            fontFamily: 'Poppins',
+                          ),
+                        ),
                 ),
               ),
             ],

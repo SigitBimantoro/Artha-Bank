@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'home_page.dart';
+import 'qris_scanner_page.dart';
 import 'tracking_page.dart';
 import 'wishlist_page.dart';
 import 'profile_page.dart';
 
 class MainPage extends StatefulWidget {
-  final int initialIndex; 
+  final int initialIndex;
   const MainPage({super.key, this.initialIndex = 0});
 
   @override
@@ -40,27 +41,26 @@ class _MainPageState extends State<MainPage> {
       // --- 1. TOMBOL QRIS MENGAMBANG DI TENGAH ---
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // TODO: Arahkan ke halaman Kamera Scanner QRIS nanti
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Membuka Kamera QRIS..."), backgroundColor: primaryColor),
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const QRISScannerPage()),
           );
         },
         backgroundColor: primaryColor,
         elevation: 4,
         // Membuat bentuknya kotak melengkung (rounded square) persis seperti desainmu
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16), 
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: const Icon(Icons.qr_code_scanner, color: Colors.white, size: 32),
       ),
-      
+
       // Mengunci posisi tombol mengambang tepat di tengah bawah
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
 
       // --- 2. MENU BAR BAWAH WARNA PUTIH DENGAN CEKUNGAN ---
       bottomNavigationBar: BottomAppBar(
         color: Colors.white,
-        shape: const CircularNotchedRectangle(), // Membuat cekungan untuk tombol QRIS
+        shape:
+            const CircularNotchedRectangle(), // Membuat cekungan untuk tombol QRIS
         notchMargin: 8.0, // Jarak ruang antara tombol QRIS dan bar putih
         elevation: 15,
         child: SizedBox(
@@ -71,11 +71,19 @@ class _MainPageState extends State<MainPage> {
               // --- Sisi Kiri (Home & Tracking) ---
               Row(
                 children: [
-                  _buildNavItem(icon: Icons.home_filled, label: "Home", index: 0),
-                  _buildNavItem(icon: Icons.pie_chart, label: "Tracking", index: 1),
+                  _buildNavItem(
+                    icon: Icons.home_filled,
+                    label: "Home",
+                    index: 0,
+                  ),
+                  _buildNavItem(
+                    icon: Icons.pie_chart,
+                    label: "Tracking",
+                    index: 1,
+                  ),
                 ],
               ),
-              
+
               // --- Teks kecil "QRIS" di bawah tombol tengah ---
               const Padding(
                 padding: EdgeInsets.only(top: 35),
@@ -85,7 +93,7 @@ class _MainPageState extends State<MainPage> {
                     color: Colors.black87,
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
-                    fontFamily: 'Poppins'
+                    fontFamily: 'Poppins',
                   ),
                 ),
               ),
@@ -93,7 +101,11 @@ class _MainPageState extends State<MainPage> {
               // --- Sisi Kanan (Wishlist & Profile) ---
               Row(
                 children: [
-                  _buildNavItem(icon: Icons.savings, label: "Wishlist", index: 2),
+                  _buildNavItem(
+                    icon: Icons.savings,
+                    label: "Wishlist",
+                    index: 2,
+                  ),
                   _buildNavItem(icon: Icons.person, label: "Profile", index: 3),
                 ],
               ),
@@ -112,7 +124,7 @@ class _MainPageState extends State<MainPage> {
   }) {
     bool isActive = _selectedIndex == index;
     const Color primaryColor = Color(0xFF4D55CC);
-    
+
     return MaterialButton(
       minWidth: 75,
       onPressed: () => setState(() => _selectedIndex = index),

@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+// Pastikan path import ini sesuai dengan struktur foldermu
+import 'change_password_page.dart';
 import 'edit_profile_page.dart';
 import 'ubah_pin_page.dart';
 import '../services/api_service.dart';
@@ -12,9 +16,12 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
+  static const String _customerServiceWhatsAppNumber = '6285930217852';
+
   String _namaLengkap = "Memuat...";
   String _emailUser = "Memuat...";
   String _nomorHp = "Memuat...";
+  String _photoUrl = "";
 
   @override
   void initState() {
@@ -28,15 +35,35 @@ class _ProfilePageState extends State<ProfilePage> {
     if (mounted) {
       setState(() {
         if (res['success']) {
-          _namaLengkap = res['data']['data']['nama'] ?? 'Reza Hafafi';
-          _emailUser = res['data']['data']['email'] ?? 'Hafafi@gmail.com';
-          _nomorHp = res['data']['data']['phone_number'] ?? '08****10';
+          final data = res['data']['data'];
+          _namaLengkap = data['nama'] ?? 'User Artha';
+          _emailUser = data['email'] ?? 'user@artha.com';
+          _nomorHp = data['phone_number'] ?? '-';
+          _photoUrl = data['photo_url'] ?? '';
         } else {
           _namaLengkap = "Gagal memuat data";
           _emailUser = "-";
           _nomorHp = "-";
+          _photoUrl = "";
         }
       });
+    }
+  }
+
+  // Fungsi untuk membuka WhatsApp Customer Service
+  Future<void> _openCustomerService() async {
+    final message = Uri.encodeComponent('Halo Artha, saya butuh bantuan terkait akun saya.');
+    final uri = Uri.parse(
+      'https://wa.me/$_customerServiceWhatsAppNumber?text=$message',
+    );
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Gagal membuka WhatsApp. Pastikan aplikasi terinstal.'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -75,7 +102,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                   child: Column(
                     children: [
-                      // Kotak Foto Profil
+                      // --- Kotak Foto Profil ---
                       Container(
                         width: 90,
                         height: 90,
@@ -83,12 +110,36 @@ class _ProfilePageState extends State<ProfilePage> {
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(25),
                         ),
-                        child: const Center(
-                          child: Icon(Icons.person, size: 50, color: primaryColor),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(25),
+                          child: _photoUrl.isEmpty
+                              ? const Center(
+                                  child: Icon(
+                                    Icons.person,
+                                    size: 50,
+                                    color: primaryColor,
+                                  ),
+                                )
+                              : Image.network(
+                                  ApiService.resolveMediaUrl(_photoUrl),
+                                  width: 90,
+                                  height: 90,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return const Center(
+                                      child: Icon(
+                                        Icons.person,
+                                        size: 50,
+                                        color: primaryColor,
+                                      ),
+                                    );
+                                  },
+                                ),
                         ),
                       ),
                       const SizedBox(height: 15),
 
+                      // --- Data User ---
                       Text(
                         _namaLengkap,
                         style: const TextStyle(
@@ -97,6 +148,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           fontWeight: FontWeight.w700,
                           fontFamily: 'Poppins',
                         ),
+                        textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 5),
 
@@ -120,17 +172,19 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                       const SizedBox(height: 20),
 
-                      // Tombol Ubah Profil
+                      // --- Tombol Ubah Profil ---
                       ElevatedButton(
                         onPressed: () async {
-                          // Tunggu sampai halaman Edit Profile ditutup
+                          // Menunggu hasil dari halaman EditProfilePage
                           final result = await Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (context) => const EditProfilePage()),
+                            MaterialPageRoute(
+                              builder: (context) => const EditProfilePage(),
+                            ),
                           );
-                          // Jika user menekan tombol simpan di halaman edit, refresh data di sini
+                          // Jika user sukses menyimpan profil (termasuk foto), refresh data
                           if (result == true) {
-                            _loadProfileData(); 
+                            _loadProfileData();
                           }
                         },
                         style: ElevatedButton.styleFrom(
@@ -140,7 +194,10 @@ class _ProfilePageState extends State<ProfilePage> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(30),
                           ),
-                          padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 30,
+                            vertical: 10,
+                          ),
                         ),
                         child: const Text(
                           'Ubah Profil',
@@ -162,7 +219,12 @@ class _ProfilePageState extends State<ProfilePage> {
                   color: primaryColor,
                   icon: Icons.chevron_right,
                   onTap: () {
-                    // Navigasi ke Ubah Sandi
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ChangePasswordPage(),
+                      ),
+                    );
                   },
                 ),
                 const SizedBox(height: 15),
@@ -174,7 +236,9 @@ class _ProfilePageState extends State<ProfilePage> {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const UbahPinPage()),
+                      MaterialPageRoute(
+                        builder: (context) => const UbahPinPage(),
+                      ),
                     );
                   },
                 ),
@@ -184,7 +248,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   title: 'Pusat Bantuan',
                   color: const Color(0xFF25D366), // Warna Hijau WhatsApp
                   icon: Icons.wechat,
-                  onTap: () {},
+                  onTap: _openCustomerService,
                 ),
                 const SizedBox(height: 15),
 
@@ -197,21 +261,26 @@ class _ProfilePageState extends State<ProfilePage> {
                     showDialog(
                       context: context,
                       barrierDismissible: false,
-                      builder: (context) => const Center(child: CircularProgressIndicator(color: primaryColor)),
+                      builder: (context) => const Center(
+                        child: CircularProgressIndicator(color: primaryColor),
+                      ),
                     );
-                    
+
                     await ApiService.logoutProcess();
                     if (!context.mounted) return;
-                    
+
+                    // Hapus semua rute sebelumnya (termasuk dialog) dan arahkan ke AuthPage
                     Navigator.pushAndRemoveUntil(
                       context,
-                      MaterialPageRoute(builder: (context) => const AuthPage(isLoginInitial: true)),
+                      MaterialPageRoute(
+                        builder: (context) => const AuthPage(isLoginInitial: true),
+                      ),
                       (route) => false,
                     );
                   },
                 ),
 
-                const SizedBox(height: 80), 
+                const SizedBox(height: 80), // Jarak bawah agar tidak tertutup bottom nav
               ],
             ),
           ),

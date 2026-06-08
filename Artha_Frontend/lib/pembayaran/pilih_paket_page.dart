@@ -22,8 +22,18 @@ class _PilihPaketPageState extends State<PilihPaketPage> {
   int? selectedDataIndex;
 
   final List<String> listPulsa = [
-    "15 rb", "20 rb", "25 rb", "30 rb", "40 rb", "50 rb",
-    "75 rb", "100 rb", "150 rb", "200 rb", "300 rb", "500 rb",
+    "15 rb",
+    "20 rb",
+    "25 rb",
+    "30 rb",
+    "40 rb",
+    "50 rb",
+    "75 rb",
+    "100 rb",
+    "150 rb",
+    "200 rb",
+    "300 rb",
+    "500 rb",
   ];
 
   final List<Map<String, String>> listData = [
@@ -83,7 +93,11 @@ class _PilihPaketPageState extends State<PilihPaketPage> {
                         color: primaryColor,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.close, color: Colors.white, size: 16),
+                      child: const Icon(
+                        Icons.close,
+                        color: Colors.white,
+                        size: 16,
+                      ),
                     ),
                   ),
                 ],
@@ -98,7 +112,11 @@ class _PilihPaketPageState extends State<PilihPaketPage> {
                       color: primaryColor,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(Icons.vibration, color: Colors.white, size: 24),
+                    child: const Icon(
+                      Icons.vibration,
+                      color: Colors.white,
+                      size: 24,
+                    ),
                   ),
                   const SizedBox(width: 15),
                   Column(
@@ -122,7 +140,7 @@ class _PilihPaketPageState extends State<PilihPaketPage> {
                         ),
                       ),
                     ],
-                  )
+                  ),
                 ],
               ),
               const SizedBox(height: 15),
@@ -139,7 +157,7 @@ class _PilihPaketPageState extends State<PilihPaketPage> {
                 ),
               ),
               const SizedBox(height: 15),
-              
+
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -192,7 +210,7 @@ class _PilihPaketPageState extends State<PilihPaketPage> {
               GestureDetector(
                 onTap: () {
                   Navigator.pop(context); // Tutup Dialog pop-up
-                  
+
                   // Mengubah string "15" menjadi double 15000.0 untuk dikirim ke Backend
                   double finalAmount = double.parse(nominalHarga) * 1000;
 
@@ -200,11 +218,12 @@ class _PilihPaketPageState extends State<PilihPaketPage> {
                     context,
                     MaterialPageRoute(
                       builder: (context) => InputPinPage(
-                        phoneNumber: widget.phoneNumber,
                         amount: finalAmount,
+                        type: 'PULSA',
+                        target: widget.phoneNumber,
                       ),
                     ),
-                  ); 
+                  );
                 },
                 child: Container(
                   width: double.infinity,
@@ -303,7 +322,9 @@ class _PilihPaketPageState extends State<PilihPaketPage> {
                             ),
                           ),
                           Text(
-                            widget.phoneNumber.isNotEmpty ? widget.phoneNumber : "Nomor tidak valid",
+                            widget.phoneNumber.isNotEmpty
+                                ? widget.phoneNumber
+                                : "Nomor tidak valid",
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 12,
@@ -317,7 +338,11 @@ class _PilihPaketPageState extends State<PilihPaketPage> {
                     Stack(
                       alignment: Alignment.bottomCenter,
                       children: [
-                        Container(height: 2, width: double.infinity, color: Colors.white),
+                        Container(
+                          height: 2,
+                          width: double.infinity,
+                          color: Colors.white,
+                        ),
                         Row(
                           children: [
                             _buildTabItem("Pulsa", !isDataActive),
@@ -338,7 +363,9 @@ class _PilihPaketPageState extends State<PilihPaketPage> {
                     ),
                     const SizedBox(height: 10),
                     Expanded(
-                      child: isDataActive ? _buildDataGrid() : _buildPulsaGrid(),
+                      child: isDataActive
+                          ? _buildDataGrid()
+                          : _buildPulsaGrid(),
                     ),
                   ],
                 ),
@@ -399,7 +426,7 @@ class _PilihPaketPageState extends State<PilihPaketPage> {
       padding: const EdgeInsets.only(left: 30, right: 30, top: 10, bottom: 40),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        childAspectRatio: 2.2, 
+        childAspectRatio: 2.2,
         crossAxisSpacing: 20,
         mainAxisSpacing: 20,
       ),
@@ -413,11 +440,17 @@ class _PilihPaketPageState extends State<PilihPaketPage> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: isSelected ? const Color(0xFF2C265C) : Colors.transparent,
+                color: isSelected
+                    ? const Color(0xFF2C265C)
+                    : Colors.transparent,
                 width: isSelected ? 3 : 0,
               ),
               boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 5, offset: const Offset(0, 3)),
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 5,
+                  offset: const Offset(0, 3),
+                ),
               ],
             ),
             child: Center(
@@ -442,7 +475,7 @@ class _PilihPaketPageState extends State<PilihPaketPage> {
       padding: const EdgeInsets.only(left: 20, right: 20, top: 10, bottom: 40),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        childAspectRatio: 0.85, 
+        childAspectRatio: 0.85,
         crossAxisSpacing: 15,
         mainAxisSpacing: 15,
       ),
@@ -457,11 +490,17 @@ class _PilihPaketPageState extends State<PilihPaketPage> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(25),
               border: Border.all(
-                color: isSelected ? const Color(0xFF2C265C) : Colors.transparent,
+                color: isSelected
+                    ? const Color(0xFF2C265C)
+                    : Colors.transparent,
                 width: isSelected ? 3 : 0,
               ),
               boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 5, offset: const Offset(0, 3)),
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 5,
+                  offset: const Offset(0, 3),
+                ),
               ],
             ),
             child: Column(
@@ -470,11 +509,36 @@ class _PilihPaketPageState extends State<PilihPaketPage> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(listData[index]['type']!, style: const TextStyle(color: Color(0xFF4D55CC), fontSize: 10, fontWeight: FontWeight.w500, fontFamily: 'Poppins')),
+                      Text(
+                        listData[index]['type']!,
+                        style: const TextStyle(
+                          color: Color(0xFF4D55CC),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                          fontFamily: 'Poppins',
+                        ),
+                      ),
                       const SizedBox(height: 6),
-                      Text(listData[index]['size']!, style: const TextStyle(color: Color(0xFF4D55CC), fontWeight: FontWeight.w900, fontSize: 20, height: 1.1, fontFamily: 'Poppins')),
+                      Text(
+                        listData[index]['size']!,
+                        style: const TextStyle(
+                          color: Color(0xFF4D55CC),
+                          fontWeight: FontWeight.w900,
+                          fontSize: 20,
+                          height: 1.1,
+                          fontFamily: 'Poppins',
+                        ),
+                      ),
                       const SizedBox(height: 4),
-                      Text(listData[index]['price']!, style: const TextStyle(color: Color(0xFF4D55CC), fontWeight: FontWeight.w600, fontSize: 14, fontFamily: 'Poppins')),
+                      Text(
+                        listData[index]['price']!,
+                        style: const TextStyle(
+                          color: Color(0xFF4D55CC),
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          fontFamily: 'Poppins',
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -482,8 +546,21 @@ class _PilihPaketPageState extends State<PilihPaketPage> {
                   width: double.infinity,
                   margin: const EdgeInsets.symmetric(horizontal: 4),
                   padding: const EdgeInsets.symmetric(vertical: 7),
-                  decoration: BoxDecoration(color: const Color(0xFF4D55CC), borderRadius: BorderRadius.circular(15)),
-                  child: const Center(child: Text("Detail", style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold, fontFamily: 'Poppins'))),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF4D55CC),
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      "Detail",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Poppins',
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -494,8 +571,9 @@ class _PilihPaketPageState extends State<PilihPaketPage> {
   }
 
   Widget _buildBottomButton() {
-    bool isPackageSelected = (!isDataActive && selectedPulsaIndex != null) || 
-                             (isDataActive && selectedDataIndex != null);
+    bool isPackageSelected =
+        (!isDataActive && selectedPulsaIndex != null) ||
+        (isDataActive && selectedDataIndex != null);
 
     return Container(
       color: const Color(0xFFF9F9F9),
@@ -503,13 +581,17 @@ class _PilihPaketPageState extends State<PilihPaketPage> {
       child: SafeArea(
         top: false,
         child: GestureDetector(
-          onTap: isPackageSelected 
+          onTap: isPackageSelected
               ? () {
                   if (!isDataActive && selectedPulsaIndex != null) {
-                    String nominal = listPulsa[selectedPulsaIndex!].replaceAll(RegExp(r'[^0-9]'), '');
+                    String nominal = listPulsa[selectedPulsaIndex!].replaceAll(
+                      RegExp(r'[^0-9]'),
+                      '',
+                    );
                     _showKonfirmasiDialog(nominal);
                   } else if (isDataActive && selectedDataIndex != null) {
-                    String nominal = listData[selectedDataIndex!]['price']!.replaceAll(RegExp(r'[^0-9]'), '');
+                    String nominal = listData[selectedDataIndex!]['price']!
+                        .replaceAll(RegExp(r'[^0-9]'), '');
                     _showKonfirmasiDialog(nominal);
                   }
                 }
@@ -517,7 +599,9 @@ class _PilihPaketPageState extends State<PilihPaketPage> {
           child: Container(
             height: 55,
             decoration: BoxDecoration(
-              color: isPackageSelected ? const Color(0xFF4D55CC) : Colors.grey.shade400,
+              color: isPackageSelected
+                  ? const Color(0xFF4D55CC)
+                  : Colors.grey.shade400,
               borderRadius: BorderRadius.circular(30),
             ),
             child: const Center(

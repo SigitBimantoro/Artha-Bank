@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'listrik_pln_page.dart';
 import 'pulsa_data_page.dart';
 
 class PembayaranPage extends StatelessWidget {
@@ -78,9 +79,10 @@ class PembayaranPage extends StatelessWidget {
                             icon: Icons.flash_on,
                             label: 'Listrik PLN',
                             onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Menu Listrik PLN ditekan'),
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const ListrikPlnPage(),
                                 ),
                               );
                             },

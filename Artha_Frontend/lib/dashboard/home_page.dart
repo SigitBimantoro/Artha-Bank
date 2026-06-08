@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
-import '../pembayaran/pembayaran_page.dart'; 
+import '../pembayaran/pembayaran_page.dart';
+import '../pembayaran/topup_page.dart';
+import '../tracking/detail_analisis_page.dart';
 import '../transfer/transfer_page.dart';
+import 'riwayat_page.dart';
 import '../services/api_service.dart'; // <-- Import API Service
 
 // --- MODEL DATA UNTUK GRAFIK DINAMIS ---
@@ -28,9 +31,7 @@ class _HomePageState extends State<HomePage> {
   List<dynamic> _recentTransactions = [];
   double _totalPengeluaran = 0;
 
-  List<ChartData> dataPengeluaran = [
-    ChartData(1, const Color(0xFFE0E0E0)), // Default Abu-abu agar tidak blank
-  ];
+  List<ChartData> dataPengeluaran = [ChartData(0, const Color(0xFFE0E0E0))];
 
   @override
   void initState() {
@@ -47,8 +48,9 @@ class _HomePageState extends State<HomePage> {
         final userData = profileRes['data']['data'];
         setState(() {
           // Ambil kata pertama dari nama lengkap
-          _namaUser = (userData['nama'] ?? 'User').split(' ')[0]; 
-          _saldo = (userData['saldo'] ?? 0).toDouble(); // Pastikan backend sudah kirim 'saldo'
+          _namaUser = (userData['nama'] ?? 'User').split(' ')[0];
+          _saldo = (userData['saldo'] ?? 0)
+              .toDouble(); // Pastikan backend sudah kirim 'saldo'
         });
       }
 
@@ -63,22 +65,20 @@ class _HomePageState extends State<HomePage> {
 
       // 3. Ambil Statistik Pengeluaran (Mingguan)
       final trackingRes = await ApiService.getTrackingKeuangan('weekly');
-      if (trackingRes['success'] && trackingRes['data'] != null && trackingRes['data']['data'] != null) {
-        final pieData = trackingRes['data']['data']['pie_chart'];
+      if (trackingRes['success'] && trackingRes['data'] != null) {
+        final pieData = trackingRes['data']['pie_chart'];
         if (pieData != null) {
           double p = (pieData['pembayaran'] ?? 0).toDouble();
-          double t = (pieData['top_up'] ?? 0).toDouble();
+          double t = 0;
           double tr = (pieData['transfer_keluar'] ?? 0).toDouble();
-          
+
           setState(() {
             _totalPengeluaran = p + t + tr;
-            if (_totalPengeluaran > 0) {
-              dataPengeluaran = [
-                ChartData(p, const Color(0xFF2C265C)), // Pembayaran
-                ChartData(t, const Color(0xFF4D55CC)), // Top up
-                ChartData(tr, const Color(0xFFD2CFF0)), // Transfer
-              ];
-            }
+            dataPengeluaran = [
+              ChartData(p, const Color(0xFF2C265C)),
+              ChartData(t, const Color(0xFF4D55CC)),
+              ChartData(tr, const Color(0xFFD2CFF0)),
+            ];
           });
         }
       }
@@ -91,10 +91,9 @@ class _HomePageState extends State<HomePage> {
 
   // Helper Format Rupiah (1.000.000)
   String _formatRupiah(double value) {
-    return value.toStringAsFixed(0).replaceAllMapped(
-      RegExp(r'\B(?=(\d{3})+(?!\d))'), 
-      (match) => '.'
-    );
+    return value
+        .toStringAsFixed(0)
+        .replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (match) => '.');
   }
 
   @override
@@ -102,297 +101,134 @@ class _HomePageState extends State<HomePage> {
     const Color primaryColor = Color(0xFF4D55CC);
 
     return SafeArea(
-      child: _isLoading 
-        ? const Center(child: CircularProgressIndicator(color: primaryColor))
-        : SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // --- Sapaan ---
-              Text(
-                'Hai, $_namaUser', // Dinamis dari API
-                style: const TextStyle(
-                  color: primaryColor,
-                  fontSize: 24,
-                  fontFamily: 'Poppins',
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Yuk, cek pengeluaranmu hari ini biar rencana besarmu tetap terjaga.',
-                style: TextStyle(
-                  color: primaryColor,
-                  fontSize: 14,
-                  fontFamily: 'Poppins',
-                ),
-              ),
-              const SizedBox(height: 30),
-
-              // --- Kartu Saldo ---
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 30),
-                decoration: BoxDecoration(
-                  color: primaryColor,
-                  borderRadius: BorderRadius.circular(30),
+      child: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: primaryColor))
+          : SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24.0,
+                  vertical: 20.0,
                 ),
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // --- Sapaan ---
+                    Text(
+                      'Hai, $_namaUser', // Dinamis dari API
+                      style: const TextStyle(
+                        color: primaryColor,
+                        fontSize: 24,
+                        fontFamily: 'Poppins',
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     const Text(
-                      'Total saldo',
+                      'Yuk, cek pengeluaranmu hari ini biar rencana besarmu tetap terjaga.',
                       style: TextStyle(
-                        color: Colors.white70,
+                        color: primaryColor,
                         fontSize: 14,
                         fontFamily: 'Poppins',
-                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    Text(
-                      _isBalanceVisible ? "Rp ${_formatRupiah(_saldo)}" : "********", // Dinamis dari API
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 38,
-                        fontFamily: 'Poppins',
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    GestureDetector(
-                      onTap: () => setState(
-                        () => _isBalanceVisible = !_isBalanceVisible,
-                      ),
-                      child: Icon(
-                        _isBalanceVisible
-                            ? Icons.visibility
-                            : Icons.visibility_off,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 30),
+                    const SizedBox(height: 30),
 
-              // --- BAGIAN TRANSAKSI ---
-              const Text(
-                'Transaksi',
-                style: TextStyle(
-                  color: primaryColor,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w900,
-                  fontFamily: 'Poppins',
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // TOMBOL TOP UP
-              GestureDetector(
-                onTap: () {
-                  // TODO: Arahkan ke halaman InputNominal untuk Top Up
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Menu Top Up ditekan')),
-                  );
-                },
-                child: Container(
-                  width: double.infinity,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: primaryColor,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.add_circle_outline,
-                        color: Colors.white,
-                        size: 26,
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        'Top up',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                          fontFamily: 'Poppins',
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // TOMBOL PEMBAYARAN & TRANSFER
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildActionButton(
-                      icon: Icons.credit_card,
-                      label: "Pembayaran",
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const PembayaranPage(),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildActionButton(
-                      icon: Icons.payments_outlined,
-                      label: "Transfer",
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const TransferPage(),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 25),
-
-              // --- TRANSAKSI TERAKHIR (DINAMIS DARI API) ---
-              const Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Transaksi Terakhir',
-                    style: TextStyle(
-                      color: primaryColor,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w900,
-                      fontFamily: 'Poppins',
-                    ),
-                  ),
-                  Text(
-                    'Lihat semua',
-                    style: TextStyle(
-                      color: Colors.grey,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      fontFamily: 'Poppins',
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // Render Riwayat Transaksi
-              if (_recentTransactions.isEmpty)
-                 Center(
-                   child: Padding(
-                     padding: const EdgeInsets.symmetric(vertical: 20),
-                     child: Text(
-                       "Belum ada transaksi",
-                       style: TextStyle(color: primaryColor.withOpacity(0.5), fontFamily: 'Poppins'),
-                     ),
-                   ),
-                 )
-              else
-                ..._recentTransactions.map((trx) {
-                  return _renderTransactionItemDinamis(trx);
-                }),
-
-              const SizedBox(height: 25),
-
-              // --- STATISTIK PENGELUARAN ---
-              const Text(
-                'Statistik Pengeluaran',
-                style: TextStyle(
-                  color: primaryColor,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w900,
-                  fontFamily: 'Poppins',
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: primaryColor,
-                  borderRadius: BorderRadius.circular(25),
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          "Tracking Keuangan",
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                            fontSize: 13,
-                            fontFamily: 'Poppins',
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: const Text(
-                            "Minggu ini",
-                            style: TextStyle(
-                              color: primaryColor,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              fontFamily: 'Poppins',
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-
+                    // --- Kartu Saldo ---
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 35),
+                      padding: const EdgeInsets.symmetric(vertical: 30),
                       decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
+                        color: primaryColor,
+                        borderRadius: BorderRadius.circular(30),
                       ),
-                      child: Center(
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            SizedBox(
-                              width: 140,
-                              height: 140,
-                              child: CustomPaint(
-                                painter: DynamicDoughnutPainter(
-                                  dataList: dataPengeluaran,
-                                ),
-                              ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text(
+                            'Total saldo',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                              fontFamily: 'Poppins',
+                              fontWeight: FontWeight.w600,
                             ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            _isBalanceVisible
+                                ? "Rp ${_formatRupiah(_saldo)}"
+                                : "********", // Dinamis dari API
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 38,
+                              fontFamily: 'Poppins',
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          GestureDetector(
+                            onTap: () => setState(
+                              () => _isBalanceVisible = !_isBalanceVisible,
+                            ),
+                            child: Icon(
+                              _isBalanceVisible
+                                  ? Icons.visibility
+                                  : Icons.visibility_off,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 30),
+
+                    // --- BAGIAN TRANSAKSI ---
+                    const Text(
+                      'Transaksi',
+                      style: TextStyle(
+                        color: primaryColor,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                        fontFamily: 'Poppins',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // TOMBOL TOP UP
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const TopUpPage(),
+                          ),
+                        ).then((value) {
+                          if (value == true && mounted) _loadHomeData();
+                        });
+                      },
+                      child: Container(
+                        width: double.infinity,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          color: primaryColor,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.add_circle_outline,
+                              color: Colors.white,
+                              size: 26,
+                            ),
+                            SizedBox(height: 8),
                             Text(
-                              _totalPengeluaran >= 1000000 
-                                  ? "Rp ${(_totalPengeluaran / 1000000).toStringAsFixed(1)} jt" 
-                                  : "Rp ${_formatRupiah(_totalPengeluaran)}",
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w900,
-                                color: primaryColor,
+                              'Top up',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
                                 fontFamily: 'Poppins',
                               ),
                             ),
@@ -400,44 +236,259 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 15),
+                    const SizedBox(height: 12),
 
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            "Lihat Detail analisis",
+                    // TOMBOL PEMBAYARAN & TRANSFER
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildActionButton(
+                            icon: Icons.credit_card,
+                            label: "Pembayaran",
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const PembayaranPage(),
+                                ),
+                              ).then((_) => _loadHomeData());
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildActionButton(
+                            icon: Icons.payments_outlined,
+                            label: "Transfer",
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const TransferPage(),
+                                ),
+                              ).then((_) => _loadHomeData());
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 25),
+
+                    // --- TRANSAKSI TERAKHIR (DINAMIS DARI API) ---
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Transaksi Terakhir',
+                          style: TextStyle(
+                            color: primaryColor,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                            fontFamily: 'Poppins',
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const RiwayatPage(),
+                              ),
+                            ).then((_) => _loadHomeData());
+                          },
+                          child: const Text(
+                            'Lihat Detail',
                             style: TextStyle(
                               color: primaryColor,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
                               fontFamily: 'Poppins',
                             ),
                           ),
-                          SizedBox(width: 5),
-                          Icon(
-                            Icons.arrow_forward_ios,
-                            color: primaryColor,
-                            size: 12,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Render Riwayat Transaksi
+                    if (_recentTransactions.isEmpty)
+                      Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.symmetric(vertical: 20),
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: primaryColor.withOpacity(0.12),
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.receipt_long,
+                              size: 34,
+                              color: primaryColor.withOpacity(0.35),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              "Belum ada transaksi",
+                              style: TextStyle(
+                                color: primaryColor.withOpacity(0.6),
+                                fontFamily: 'Poppins',
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      ..._recentTransactions.map((trx) {
+                        return _renderTransactionItemDinamis(trx);
+                      }),
+
+                    const SizedBox(height: 25),
+
+                    // --- STATISTIK PENGELUARAN ---
+                    const Text(
+                      'Statistik Pengeluaran',
+                      style: TextStyle(
+                        color: primaryColor,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                        fontFamily: 'Poppins',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: primaryColor,
+                        borderRadius: BorderRadius.circular(25),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                "Tracking Keuangan",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontFamily: 'Poppins',
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: const Text(
+                                  "Minggu ini",
+                                  style: TextStyle(
+                                    color: primaryColor,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    fontFamily: 'Poppins',
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(vertical: 35),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Center(
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  SizedBox(
+                                    width: 140,
+                                    height: 140,
+                                    child: CustomPaint(
+                                      painter: DynamicDoughnutPainter(
+                                        dataList: dataPengeluaran,
+                                      ),
+                                    ),
+                                  ),
+                                  Text(
+                                    _totalPengeluaran >= 1000000
+                                        ? "Rp ${(_totalPengeluaran / 1000000).toStringAsFixed(1)} jt"
+                                        : "Rp ${_formatRupiah(_totalPengeluaran)}",
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w900,
+                                      color: primaryColor,
+                                      fontFamily: 'Poppins',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 15),
+
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const DetailAnalisisPage(
+                                        period: 'weekly',
+                                      ),
+                                ),
+                              );
+                            },
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    "Lihat Detail analisis",
+                                    style: TextStyle(
+                                      color: primaryColor,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 13,
+                                      fontFamily: 'Poppins',
+                                    ),
+                                  ),
+                                  SizedBox(width: 5),
+                                  Icon(
+                                    Icons.arrow_forward_ios,
+                                    color: primaryColor,
+                                    size: 12,
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ],
                       ),
                     ),
+                    const SizedBox(height: 50), // Ruang ekstra di bawah
                   ],
                 ),
               ),
-              const SizedBox(height: 50), // Ruang ekstra di bawah
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 
@@ -487,7 +538,9 @@ class _HomePageState extends State<HomePage> {
     }
 
     // Hindari notes kepanjangan yang bikin layout rusak
-    String shortNotes = notes.length > 25 ? "${notes.substring(0, 25)}..." : notes;
+    String shortNotes = notes.length > 25
+        ? "${notes.substring(0, 25)}..."
+        : notes;
 
     return _buildTransactionItem(
       title,

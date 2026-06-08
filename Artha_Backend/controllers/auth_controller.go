@@ -70,6 +70,12 @@ type ChangePinReq struct {
 	ConfirmNewPin string `json:"confirm_new_pin" binding:"required,numeric,len=6"`
 }
 
+type ChangePasswordReq struct {
+	CurrentPassword    string `json:"current_password" binding:"required"`
+	NewPassword        string `json:"new_password" binding:"required,min=6"`
+	ConfirmNewPassword string `json:"confirm_new_password" binding:"required,min=6"`
+}
+
 func (ac *AuthController) RegisterUser(c *gin.Context) {
 	var req RegisterRequest
 
@@ -406,6 +412,12 @@ func (ac *AuthController) GetProfile(c *gin.Context) {
 		return
 	}
 
+	var wallet models.Wallet
+	saldo := 0.0
+	if err := ac.DB.Where("user_id = ?", userID).First(&wallet).Error; err == nil {
+		saldo = wallet.Saldo
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"data": gin.H{
 			"user_id":      user.UserID,
@@ -413,6 +425,7 @@ func (ac *AuthController) GetProfile(c *gin.Context) {
 			"email":        user.Email,
 			"phone_number": user.PhoneNumber,
 			"photo_url":    user.PhotoURL,
+			"saldo":        saldo,
 		},
 	})
 }
@@ -641,6 +654,50 @@ func (ac *AuthController) VerifyPassword(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Password benar, silakan lanjut masukkan PIN.",
 	})
+}
+
+func (ac *AuthController) ChangePassword(c *gin.Context) {
+	userIDContext, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid, silakan login kembali."})
+		return
+	}
+	userID := userIDContext.(uint)
+
+	var req ChangePasswordReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Pastikan semua kolom terisi dan kata sandi baru minimal 6 karakter."})
+		return
+	}
+
+	if req.NewPassword != req.ConfirmNewPassword {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Kata sandi baru dan konfirmasi tidak cocok."})
+		return
+	}
+
+	var user models.User
+	if err := ac.DB.First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menemukan data user."})
+		return
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.CurrentPassword)); err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Kata sandi saat ini salah."})
+		return
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengamankan kata sandi baru."})
+		return
+	}
+
+	if err := ac.DB.Model(&user).Update("password", string(hashedPassword)).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan kata sandi baru."})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Kata sandi berhasil diubah."})
 }
 
 // ==========================================
