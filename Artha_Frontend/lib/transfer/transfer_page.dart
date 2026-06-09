@@ -55,6 +55,136 @@ class _TransferPageState extends State<TransferPage> {
     }
   }
 
+  // --- FUNGSI POP-UP TAMBAH KONTAK FAVORIT ---
+  void _showTambahKontakBottomSheet() {
+    const Color primaryColor = Color(0xFF4D55CC);
+    final TextEditingController namaController = TextEditingController();
+    final TextEditingController phoneController = TextEditingController();
+    bool isLoading = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Tambah Kontak Favorit",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: primaryColor,
+                        fontFamily: 'Poppins',
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Field Nama
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF5F5F5),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: TextField(
+                        controller: namaController,
+                        style: const TextStyle(color: primaryColor, fontFamily: 'Poppins', fontWeight: FontWeight.w700),
+                        decoration: InputDecoration(
+                          labelText: 'Nama Kontak',
+                          labelStyle: TextStyle(color: primaryColor.withOpacity(0.5), fontSize: 11, fontFamily: 'Poppins', fontWeight: FontWeight.w600),
+                          border: InputBorder.none,
+                          floatingLabelBehavior: FloatingLabelBehavior.always,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Field Nomor HP
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF5F5F5),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: TextField(
+                        controller: phoneController,
+                        keyboardType: TextInputType.phone,
+                        style: const TextStyle(color: primaryColor, fontFamily: 'Poppins', fontWeight: FontWeight.w700),
+                        decoration: InputDecoration(
+                          labelText: 'Nomor HP',
+                          labelStyle: TextStyle(color: primaryColor.withOpacity(0.5), fontSize: 11, fontFamily: 'Poppins', fontWeight: FontWeight.w600),
+                          border: InputBorder.none,
+                          floatingLabelBehavior: FloatingLabelBehavior.always,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: isLoading
+                            ? null
+                            : () async {
+                                if (namaController.text.trim().isEmpty || phoneController.text.trim().isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text("Nama dan nomor HP wajib diisi!"), duration: Duration(seconds: 1)),
+                                  );
+                                  return;
+                                }
+                                setModalState(() => isLoading = true);
+                                final res = await ApiService.createFavorite(
+                                  phoneController.text.trim(),
+                                  namaController.text.trim(),
+                                );
+                                if (!mounted) return;
+                                Navigator.pop(context);
+                                if (res['success'] == true) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text("Kontak berhasil ditambahkan!"), duration: Duration(seconds: 1)),
+                                  );
+                                  _fetchFavorites();
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(res['message'] ?? "Gagal menambahkan kontak")),
+                                  );
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryColor,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                          elevation: 0,
+                        ),
+                        child: isLoading
+                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                            : const Text("Simpan", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontFamily: 'Poppins', fontSize: 15)),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   // --- FUNGSI POP-UP KONFIRMASI (INTEGRASI FINAL) ---
   void _showConfirmationDialog(Map<String, dynamic> recipient) {
     showModalBottomSheet(
@@ -89,13 +219,25 @@ class _TransferPageState extends State<TransferPage> {
               child: ElevatedButton(
                 onPressed: () {
                   Navigator.pop(context);
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => InputNominalPage(receiverName: recipient['label'], receiverPhone: recipient['recipient_phone'])));
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => InputNominalPage(receiverName: recipient['label'], receiverPhone: recipient['recipient_phone'], transactionType: 'TRANSFER')));
                 },
                 style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4D55CC), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25))),
                 child: const Text("Lanjutkan", style: TextStyle(color: Colors.white)),
               ),
             ),
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text("Ubah Penerima", style: TextStyle(color: Color(0xFF4D55CC)))),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () => Navigator.pop(context),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Color(0xFF4D55CC), width: 1.5),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child: const Text("Ubah Penerima", style: TextStyle(color: Color(0xFF4D55CC), fontWeight: FontWeight.w800, fontFamily: 'Poppins')),
+              ),
+            ),
           ],
         ),
       ),
@@ -183,7 +325,7 @@ class _TransferPageState extends State<TransferPage> {
       itemCount: _favorites.length + 1,
       itemBuilder: (ctx, i) {
         if (i == _favorites.length) {
-          return _buildFavItem("Tambah", Icons.add, () {}); 
+          return _buildTambahFavItem();
         }
         // Panggil pop-up saat rekening ditekan
         return _buildFavItem(_favorites[i]['label'] ?? 'User', Icons.person, () => _showConfirmationDialog(_favorites[i]));
@@ -191,15 +333,67 @@ class _TransferPageState extends State<TransferPage> {
     ),
   );
 
+  // Tombol Tambah Rekening Favorit (sesuai desain)
+  Widget _buildTambahFavItem() => Container(
+    margin: const EdgeInsets.only(right: 16),
+    child: GestureDetector(
+      onTap: () => _showTambahKontakBottomSheet(),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.white, width: 1.5),
+            ),
+            child: const Icon(Icons.star_border_rounded, color: Colors.white, size: 26),
+          ),
+          const SizedBox(height: 8),
+          const SizedBox(
+            width: 65,
+            child: Text(
+              'Tambah rekening favorit',
+              style: TextStyle(color: Colors.white, fontSize: 10),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
   Widget _buildFavItem(String label, IconData icon, VoidCallback onTap) => Container(
-    margin: const EdgeInsets.only(right: 20),
+    margin: const EdgeInsets.only(right: 16),
     child: GestureDetector(
       onTap: onTap,
-      child: Column(children: [
-        Container(padding: const EdgeInsets.all(15), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: const Color(0xFF4D55CC))),
-        const SizedBox(height: 8),
-        Text(label, style: const TextStyle(color: Colors.white, fontSize: 10), textAlign: TextAlign.center),
-      ]),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(Icons.person, color: Color(0xFF4D55CC), size: 28),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: 65,
+            child: Text(
+              label,
+              style: const TextStyle(color: Colors.white, fontSize: 10),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+            ),
+          ),
+        ],
+      ),
     ),
   );
 
@@ -213,7 +407,7 @@ class _TransferPageState extends State<TransferPage> {
         title: Text(_recentTransfers[i]['nama'], style: const TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Text(_recentTransfers[i]['phone_number']),
         trailing: IconButton(icon: const Icon(Icons.bookmark_border, color: Color(0xFF4D55CC)), onPressed: () => _addRecentToFavorites(_recentTransfers[i]['nama'], _recentTransfers[i]['phone_number'])),
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => InputNominalPage(receiverName: _recentTransfers[i]['nama'], receiverPhone: _recentTransfers[i]['phone_number']))),
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => InputNominalPage(receiverName: _recentTransfers[i]['nama'], receiverPhone: _recentTransfers[i]['phone_number'], transactionType: 'TRANSFER'))),
       ),
     ),
   );
@@ -221,7 +415,7 @@ class _TransferPageState extends State<TransferPage> {
   Widget _buildBottomButton(Color color) => Padding(
     padding: const EdgeInsets.all(24),
     child: ElevatedButton(
-      onPressed: () => _phoneController.text.isNotEmpty ? Navigator.push(context, MaterialPageRoute(builder: (_) => InputNominalPage(receiverName: "Nomor Baru", receiverPhone: _phoneController.text.trim()))) : null,
+      onPressed: () => _phoneController.text.isNotEmpty ? Navigator.push(context, MaterialPageRoute(builder: (_) => InputNominalPage(receiverName: "Nomor Baru", receiverPhone: _phoneController.text.trim(), transactionType: 'TRANSFER'))) : null,
       style: ElevatedButton.styleFrom(backgroundColor: color, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25))),
       child: const Text("Lanjutkan", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
     ),
@@ -233,4 +427,3 @@ class _TransferPageState extends State<TransferPage> {
     super.dispose();
   }
 }
-

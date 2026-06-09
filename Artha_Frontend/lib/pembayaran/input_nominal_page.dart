@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
-import '../pembayaran/input_pin_page.dart';
+import 'input_pin_page.dart';
 
 class InputNominalPage extends StatefulWidget {
-  final String receiverPhone;
   final String receiverName;
+  final String receiverPhone;
+  final String transactionType; // 'TRANSFER', 'TOPUP', 'PULSA', 'PLN'
 
   const InputNominalPage({
     super.key,
-    required this.receiverPhone,
     required this.receiverName,
+    required this.receiverPhone,
+    required this.transactionType,
   });
 
   @override
@@ -16,189 +18,219 @@ class InputNominalPage extends StatefulWidget {
 }
 
 class _InputNominalPageState extends State<InputNominalPage> {
-  final TextEditingController _amountController = TextEditingController();
-  final TextEditingController _notesController = TextEditingController();
+  String _nominal = '';
 
-  @override
-  void dispose() {
-    _amountController.dispose();
-    _notesController.dispose();
-    super.dispose();
+  static const Color primaryColor = Color(0xFF4D55CC);
+
+  String get _formattedNominal {
+    if (_nominal.isEmpty) return 'Rp 0';
+    final angka = int.tryParse(_nominal) ?? 0;
+    final s = angka.toString();
+    final formatted = s.replaceAllMapped(
+      RegExp(r'\B(?=(\d{3})+(?!\d))'),
+      (m) => '.',
+    );
+    return 'Rp $formatted';
+  }
+
+  void _onKeyPressed(String val) {
+    setState(() {
+      if (val == '<') {
+        if (_nominal.isNotEmpty) {
+          _nominal = _nominal.substring(0, _nominal.length - 1);
+        }
+      } else if (val == '000') {
+        if (_nominal.isNotEmpty) {
+          _nominal += '000';
+        }
+      } else {
+        if (_nominal.length < 10) {
+          _nominal += val;
+        }
+      }
+    });
+  }
+
+  void _lanjutkan() {
+    final amount = double.tryParse(_nominal) ?? 0;
+    if (amount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Masukkan nominal yang valid'),
+          duration: Duration(seconds: 1),
+        ),
+      );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => InputPinPage(
+          phoneNumber: widget.transactionType == 'TRANSFER' ? widget.receiverPhone : null,
+          amount: amount,
+          type: widget.transactionType,
+          target: widget.receiverName,
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryColor = Color(0xFF4D55CC);
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF9F9F9),
-      appBar: AppBar(
-        backgroundColor: primaryColor,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          "Nominal Transfer",
-          style: TextStyle(
-            color: Colors.white,
-            fontFamily: 'Poppins',
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
+      backgroundColor: primaryColor,
+      body: SafeArea(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Info Penerima
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: primaryColor.withOpacity(0.3)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            // --- HEADER ---
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              child: Row(
                 children: [
-                  const Text(
-                    "Penerima",
-                    style: TextStyle(
-                      color: Colors.grey,
-                      fontSize: 12,
-                      fontFamily: 'Poppins',
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.arrow_back,
+                        color: primaryColor,
+                        size: 20,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 5),
+                  const SizedBox(width: 20),
                   Text(
-                    widget.receiverName,
+                    widget.transactionType == 'TOPUP' ? 'Top Up' : 'Masukkan Nominal',
                     style: const TextStyle(
-                      color: primaryColor,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'Poppins',
-                    ),
-                  ),
-                  Text(
-                    widget.receiverPhone,
-                    style: const TextStyle(
-                      color: primaryColor,
-                      fontSize: 14,
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
                       fontFamily: 'Poppins',
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 30),
 
-            // Input Nominal
-            const Text(
-              "Nominal (Rp)",
-              style: TextStyle(
-                color: primaryColor,
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'Poppins',
+            const SizedBox(height: 20),
+
+            // --- INFO PENERIMA ---
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.transactionType == 'TOPUP' ? 'Metode Top Up' : 'Tujuan',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.7),
+                        fontSize: 11,
+                        fontFamily: 'Poppins',
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      widget.receiverName,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontFamily: 'Poppins',
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    if (widget.transactionType != 'TOPUP') ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.receiverPhone,
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.7),
+                          fontSize: 12,
+                          fontFamily: 'Poppins',
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _amountController,
-              keyboardType: TextInputType.number,
+
+            const SizedBox(height: 40),
+
+            // --- TAMPILAN NOMINAL ---
+            Text(
+              _formattedNominal,
               style: const TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: primaryColor,
-              ),
-              decoration: InputDecoration(
-                hintText: "0",
-                border: UnderlineInputBorder(
-                  borderSide: BorderSide(color: primaryColor.withOpacity(0.5)),
-                ),
-                focusedBorder: const UnderlineInputBorder(
-                  borderSide: BorderSide(color: primaryColor, width: 2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 30),
-
-            // Input Catatan (Opsional)
-            const Text(
-              "Catatan (Opsional)",
-              style: TextStyle(
-                color: primaryColor,
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
+                color: Colors.white,
+                fontSize: 36,
+                fontWeight: FontWeight.w900,
                 fontFamily: 'Poppins',
               ),
             ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _notesController,
-              decoration: InputDecoration(
-                hintText: "Contoh: Bayar hutang makan",
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(15),
-                  borderSide: BorderSide.none,
-                ),
+
+            const SizedBox(height: 8),
+
+            Text(
+              'Masukkan nominal',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.6),
+                fontSize: 13,
+                fontFamily: 'Poppins',
+                fontWeight: FontWeight.w400,
               ),
             ),
 
             const Spacer(),
 
-            // Tombol Lanjutkan
-            SizedBox(
-              width: double.infinity,
-              height: 55,
-              child: ElevatedButton(
-                onPressed: () {
-                  final amount = double.tryParse(
-                    _amountController.text.replaceAll('.', ''),
-                  );
-                  if (amount == null || amount <= 0) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Masukkan nominal yang valid!'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                    return;
-                  }
+            // --- KEYPAD ---
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 10),
+              child: Column(
+                children: [
+                  _buildKeypadRow(['1', '2', '3']),
+                  _buildKeypadRow(['4', '5', '6']),
+                  _buildKeypadRow(['7', '8', '9']),
+                  _buildKeypadRow(['000', '0', '<']),
+                ],
+              ),
+            ),
 
-                  // Lanjut ke halaman PIN Transfer
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => InputPinPage(
-                        phoneNumber: widget.receiverPhone,
-                        amount: amount,
-                        type: 'TRANSFER',
-                        notes: _notesController.text,
-                      ),
+            // --- TOMBOL LANJUTKAN ---
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 10, 24, 30),
+              child: SizedBox(
+                width: double.infinity,
+                height: 55,
+                child: ElevatedButton(
+                  onPressed: _lanjutkan,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
                     ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryColor,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(25),
+                    elevation: 0,
                   ),
-                ),
-                child: const Text(
-                  "Lanjutkan",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'Poppins',
+                  child: const Text(
+                    'Lanjutkan',
+                    style: TextStyle(
+                      color: primaryColor,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      fontFamily: 'Poppins',
+                    ),
                   ),
                 ),
               ),
@@ -208,4 +240,45 @@ class _InputNominalPageState extends State<InputNominalPage> {
       ),
     );
   }
-}
+
+  Widget _buildKeypadRow(List<String> keys) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 15),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: keys.map((val) => _buildKey(val)).toList(),
+      ),
+    );
+  }
+
+  Widget _buildKey(String val) {
+    return GestureDetector(
+      onTap: () => _onKeyPressed(val),
+      child: Container(
+        width: 85,
+        height: 70,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Center(
+          child: val == '<'
+              ? const Icon(
+                  Icons.backspace_rounded,
+                  color: Colors.white,
+                  size: 26,
+                )
+              : Text(
+                  val,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                    fontFamily: 'Poppins',
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+} 

@@ -4,8 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   // Gunakan 10.0.2.2 untuk emulator Android, atau IP fisik jika pakai HP
-  static const String serverUrl = 'http://10.0.2.2:8080';
-  static const String baseUrl = 'http://10.0.2.2:8080/api';
+  static const String serverUrl = 'http://192.168.18.79:8080';
+  static const String baseUrl = 'http://192.168.18.79:8080/api';
 
   static String resolveMediaUrl(String? path) {
     if (path == null || path.isEmpty) return '';

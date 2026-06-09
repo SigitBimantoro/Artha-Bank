@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../pembayaran/input_pin_page.dart'; // <-- Path sudah benar
+import '../pembayaran/input_nominal_page.dart';
 
 class InputRekeningPage extends StatefulWidget {
   final String? initialBankName;
@@ -20,6 +20,7 @@ class _InputRekeningPageState extends State<InputRekeningPage> {
 
   late String selectedBankName;
   late String selectedBankType;
+  String _namaPenerima = '';
 
   @override
   void initState() {
@@ -90,9 +91,9 @@ class _InputRekeningPageState extends State<InputRekeningPage> {
                     ),
                     const SizedBox(height: 15),
                     
-                    const Text(
-                      "Muhammad Reza Raffi",
-                      style: TextStyle(
+                    Text(
+                      _namaPenerima.isNotEmpty ? _namaPenerima : _rekeningController.text,
+                      style: const TextStyle(
                         color: primaryColor,
                         fontWeight: FontWeight.w900,
                         fontSize: 15,
@@ -128,16 +129,14 @@ class _InputRekeningPageState extends State<InputRekeningPage> {
                 onTap: () {
                   Navigator.pop(context); 
                   
-                  // ========================================================
-                  // 🟢 PERBAIKAN DI SINI: Menambahkan parameter yang diminta
-                  // ========================================================
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => InputPinPage(
-                        phoneNumber: _rekeningController.text, 
-                        amount: 0, // <-- Diisi 0 sementara agar tidak merah
-                      ), 
+                      builder: (context) => InputNominalPage(
+                        receiverName: "$selectedBankName - ${_rekeningController.text}",
+                        receiverPhone: _rekeningController.text,
+                        transactionType: 'TRANSFER',
+                      ),
                     ),
                   );
                 },
@@ -164,7 +163,13 @@ class _InputRekeningPageState extends State<InputRekeningPage> {
               const SizedBox(height: 20),
 
               GestureDetector(
-                onTap: () => Navigator.pop(context),
+                onTap: () {
+                  Navigator.pop(context);
+                  setState(() {
+                    _rekeningController.clear();
+                    _namaPenerima = '';
+                  });
+                },
                 child: const Text(
                   "Ubah Penerima",
                   style: TextStyle(
