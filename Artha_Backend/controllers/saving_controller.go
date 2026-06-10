@@ -258,3 +258,57 @@ func (sc *SavingController) TarikSaldo(c *gin.Context) {
 	tx.Commit()
 	c.JSON(http.StatusOK, gin.H{"message": "Saldo tabungan berhasil dicairkan ke dompet utama!", "saldo_dompet": wallet.Saldo})
 }
+
+// 7. HAPUS TABUNGAN
+func (sc *SavingController) DeleteSaving(c *gin.Context) {
+	userIDContext, _ := c.Get("userID")
+	userID := userIDContext.(uint)
+	savingID := c.Param("id")
+
+	tx := sc.DB.Begin()
+
+	var saving models.Saving
+	if err := tx.Where("saving_id = ? AND user_id = ?", savingID, userID).First(&saving).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusNotFound, gin.H{"error": "Tabungan tidak ditemukan"})
+		return
+	}
+
+	if saving.SaldoTerkumpul > 0 {
+		var wallet models.Wallet
+		if err := tx.Where("user_id = ?", userID).First(&wallet).Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengakses dompet utama"})
+			return
+		}
+
+		wallet.Saldo += saving.SaldoTerkumpul
+		if err := tx.Save(&wallet).Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengembalikan saldo tabungan"})
+			return
+		}
+
+		catatan := "Pengembalian saldo dari wishlist yang dihapus: " + saving.NamaTarget
+		if err := tx.Create(&models.Transaction{
+			TransactionType: "SAVING_OUT",
+			SenderID:        userID,
+			ReceiverID:      userID,
+			Amount:          saving.SaldoTerkumpul,
+			Notes:           catatan,
+		}).Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mencatat pengembalian saldo"})
+			return
+		}
+	}
+
+	if err := tx.Delete(&saving).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus wishlist"})
+		return
+	}
+
+	tx.Commit()
+	c.JSON(http.StatusOK, gin.H{"message": "Wishlist berhasil dihapus"})
+}

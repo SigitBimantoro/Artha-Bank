@@ -37,6 +37,7 @@ func SetupRoutes(r *gin.Engine, authService *controllers.AuthController, transac
 		protected.GET("/savings", savingService.GetSavings)
 		protected.POST("/savings", savingService.CreateSaving)
 		protected.PUT("/savings/:id", savingService.UpdateSaving)
+		protected.DELETE("/savings/:id", savingService.DeleteSaving)
 		protected.PUT("/savings/:id/auto-debit", savingService.UpdateAutoDebit)
 		protected.POST("/savings/:id/add", savingService.AddSaldo)
 		protected.POST("/savings/:id/withdraw", savingService.TarikSaldo)

@@ -16,10 +16,12 @@ import (
 )
 
 type RincianKategori struct {
-	Pembayaran     float64 `json:"pembayaran"`
-	TopUp          float64 `json:"top_up"`
-	TransferMasuk  float64 `json:"transfer_masuk"`
-	TransferKeluar float64 `json:"transfer_keluar"`
+	Pembayaran        float64 `json:"pembayaran"`
+	PembayaranPulsa   float64 `json:"pembayaran_pulsa"`
+	PembayaranListrik float64 `json:"pembayaran_listrik"`
+	TopUp             float64 `json:"top_up"`
+	TransferMasuk     float64 `json:"transfer_masuk"`
+	TransferKeluar    float64 `json:"transfer_keluar"`
 }
 
 type GrafikBatang struct {
@@ -138,6 +140,8 @@ func (hc *HistoryController) buildTrackingKeuangan(userID uint, period string) (
 		trxType := strings.ToUpper(trx.TransactionType)
 
 		isPembayaran := trx.SenderID == userID && (trxType == "PULSA" || trxType == "PLN" || trxType == "PEMBAYARAN")
+		isPulsa := trx.SenderID == userID && trxType == "PULSA"
+		isListrik := trx.SenderID == userID && trxType == "PLN"
 		// PERBAIKAN 3: Longgarkan syarat Top Up agar terbaca (entah user sebagai penerima/pengirim)
 		isTopUp := trxType == "TOPUP"
 		isTransferKeluar := trx.SenderID == userID && trxType == "TRANSFER"
@@ -150,6 +154,11 @@ func (hc *HistoryController) buildTrackingKeuangan(userID uint, period string) (
 
 		if isPembayaran {
 			pieChart.Pembayaran += trx.Amount
+			if isPulsa {
+				pieChart.PembayaranPulsa += trx.Amount
+			} else if isListrik {
+				pieChart.PembayaranListrik += trx.Amount
+			}
 		} else if isTopUp {
 			pieChart.TopUp += trx.Amount
 		} else if isTransferKeluar {
@@ -177,6 +186,11 @@ func (hc *HistoryController) buildTrackingKeuangan(userID uint, period string) (
 
 		if isPembayaran {
 			barChart[idx].Nominal.Pembayaran += trx.Amount
+			if isPulsa {
+				barChart[idx].Nominal.PembayaranPulsa += trx.Amount
+			} else if isListrik {
+				barChart[idx].Nominal.PembayaranListrik += trx.Amount
+			}
 		} else if isTopUp {
 			barChart[idx].Nominal.TopUp += trx.Amount
 		} else if isTransferKeluar {
@@ -224,35 +238,108 @@ func (hc *HistoryController) ExportTrackingKeuanganPDF(c *gin.Context) {
 
 	pdf := gofpdf.New("P", "mm", "A4", "")
 	pdf.SetTitle("Ringkasan Keuangan Artha", false)
+	pdf.SetMargins(14, 14, 14)
 	pdf.AddPage()
-	pdf.SetFont("Arial", "B", 16)
-	pdf.Cell(0, 10, "Ringkasan Keuangan Artha")
-	pdf.Ln(12)
 
+	primaryR, primaryG, primaryB := 77, 85, 204
+	darkR, darkG, darkB := 44, 38, 92
+	softR, softG, softB := 238, 240, 255
+
+	formatCurrency := func(value float64) string {
+		return fmt.Sprintf("Rp %.2f", value)
+	}
+
+	periodLabel := map[string]string{
+		"weekly":  "Mingguan",
+		"monthly": "Bulanan",
+		"yearly":  "Tahunan",
+	}[period]
+	if periodLabel == "" {
+		periodLabel = strings.Title(period)
+	}
+
+	pdf.SetFillColor(primaryR, primaryG, primaryB)
+	pdf.SetTextColor(255, 255, 255)
+	pdf.SetFont("Arial", "B", 18)
+	pdf.CellFormat(0, 14, "Ringkasan Keuangan Artha", "0", 1, "C", true, 0, "")
+	pdf.Ln(8)
+
+	pdf.SetTextColor(darkR, darkG, darkB)
+	pdf.SetFont("Arial", "B", 13)
+	pdf.CellFormat(90, 9, "Periode", "1", 0, "L", false, 0, "")
+	pdf.CellFormat(90, 9, "Total Keseluruhan", "1", 1, "L", false, 0, "")
 	pdf.SetFont("Arial", "", 12)
-	pdf.CellFormat(0, 7, fmt.Sprintf("Periode: %s", strings.Title(period)), "", 1, "", false, 0, "")
-	pdf.CellFormat(0, 7, fmt.Sprintf("Total Keseluruhan: Rp %.2f", grandTotal), "", 1, "", false, 0, "")
-	pdf.Ln(5)
+	pdf.SetFillColor(softR, softG, softB)
+	pdf.CellFormat(90, 11, periodLabel, "1", 0, "L", true, 0, "")
+	pdf.CellFormat(90, 11, formatCurrency(grandTotal), "1", 1, "L", true, 0, "")
+	pdf.Ln(10)
 
-	pdf.SetFont("Arial", "B", 12)
-	pdf.Cell(0, 7, "Rincian Kategori:")
-	pdf.Ln(8)
-	pdf.SetFont("Arial", "", 11)
-	pdf.CellFormat(0, 6, fmt.Sprintf("- Pembayaran: Rp %.2f", pieChart.Pembayaran), "", 1, "", false, 0, "")
-	pdf.CellFormat(0, 6, fmt.Sprintf("- Top Up: Rp %.2f", pieChart.TopUp), "", 1, "", false, 0, "")
-	pdf.CellFormat(0, 6, fmt.Sprintf("- Transfer Masuk: Rp %.2f", pieChart.TransferMasuk), "", 1, "", false, 0, "")
-	pdf.CellFormat(0, 6, fmt.Sprintf("- Transfer Keluar: Rp %.2f", pieChart.TransferKeluar), "", 1, "", false, 0, "")
-	pdf.Ln(8)
+	pdf.SetFont("Arial", "B", 14)
+	pdf.CellFormat(0, 8, "Rincian Kategori", "", 1, "L", false, 0, "")
+	pdf.Ln(2)
+	pdf.SetFillColor(primaryR, primaryG, primaryB)
+	pdf.SetTextColor(255, 255, 255)
+	pdf.SetFont("Arial", "B", 11)
+	pdf.CellFormat(90, 9, "Kategori", "1", 0, "C", true, 0, "")
+	pdf.CellFormat(90, 9, "Nominal", "1", 1, "C", true, 0, "")
 
-	pdf.SetFont("Arial", "B", 12)
-	pdf.Cell(0, 7, "Bar Chart (Ringkasan):")
-	pdf.Ln(8)
+	pdf.SetTextColor(darkR, darkG, darkB)
 	pdf.SetFont("Arial", "", 11)
+	categoryRows := []struct {
+		Label string
+		Value float64
+	}{
+		{"Pulsa / Kuota", pieChart.PembayaranPulsa},
+		{"Tagihan Listrik", pieChart.PembayaranListrik},
+		{"Top Up", pieChart.TopUp},
+		{"Transfer Masuk", pieChart.TransferMasuk},
+		{"Transfer Keluar", pieChart.TransferKeluar},
+	}
+	for i, row := range categoryRows {
+		pdf.SetFillColor(255, 255, 255)
+		if i%2 == 1 {
+			pdf.SetFillColor(softR, softG, softB)
+		}
+		pdf.CellFormat(90, 8, row.Label, "1", 0, "L", true, 0, "")
+		pdf.CellFormat(90, 8, formatCurrency(row.Value), "1", 1, "R", true, 0, "")
+	}
+	pdf.Ln(10)
+
+	pdf.SetFont("Arial", "B", 14)
+	pdf.CellFormat(0, 8, "Ringkasan Periode", "", 1, "L", false, 0, "")
+	pdf.Ln(2)
+
+	pdf.SetFillColor(primaryR, primaryG, primaryB)
+	pdf.SetTextColor(255, 255, 255)
+	pdf.SetFont("Arial", "B", 9)
+	pdf.CellFormat(18, 9, "Label", "1", 0, "C", true, 0, "")
+	pdf.CellFormat(30, 9, "Pulsa / Kuota", "1", 0, "C", true, 0, "")
+	pdf.CellFormat(30, 9, "Tagihan Listrik", "1", 0, "C", true, 0, "")
+	pdf.CellFormat(28, 9, "Top Up", "1", 0, "C", true, 0, "")
+	pdf.CellFormat(37, 9, "Transfer Masuk", "1", 0, "C", true, 0, "")
+	pdf.CellFormat(37, 9, "Transfer Keluar", "1", 1, "C", true, 0, "")
+
+	pdf.SetTextColor(darkR, darkG, darkB)
+	pdf.SetFont("Arial", "", 8)
 	for _, bar := range barChart {
-		pdf.MultiCell(0, 6, fmt.Sprintf("%s: Pembayaran Rp %.2f, Top Up Rp %.2f, Transfer Masuk Rp %.2f, Transfer Keluar Rp %.2f", bar.Label, bar.Nominal.Pembayaran, bar.Nominal.TopUp, bar.Nominal.TransferMasuk, bar.Nominal.TransferKeluar), "", "L", false)
+		pdf.SetFillColor(255, 255, 255)
+		pdf.CellFormat(18, 8, bar.Label, "1", 0, "C", true, 0, "")
+		pdf.CellFormat(30, 8, formatCurrency(bar.Nominal.PembayaranPulsa), "1", 0, "R", true, 0, "")
+		pdf.CellFormat(30, 8, formatCurrency(bar.Nominal.PembayaranListrik), "1", 0, "R", true, 0, "")
+		pdf.CellFormat(28, 8, formatCurrency(bar.Nominal.TopUp), "1", 0, "R", true, 0, "")
+		pdf.CellFormat(37, 8, formatCurrency(bar.Nominal.TransferMasuk), "1", 0, "R", true, 0, "")
+		pdf.CellFormat(37, 8, formatCurrency(bar.Nominal.TransferKeluar), "1", 1, "R", true, 0, "")
 	}
 	pdf.Ln(8)
 
+	summaryText := buildTrackingSummaryText(periodLabel, pieChart, grandTotal)
+	pdf.SetFont("Arial", "B", 14)
+	pdf.CellFormat(0, 8, "Kesimpulan", "", 1, "L", false, 0, "")
+	pdf.SetFont("Arial", "", 11)
+	pdf.MultiCell(0, 7, summaryText, "1", "L", false)
+	pdf.Ln(4)
+
+	pdf.SetTextColor(90, 90, 90)
 	pdf.SetFont("Arial", "I", 10)
 	pdf.CellFormat(0, 6, fmt.Sprintf("Dihasilkan pada: %s", time.Now().Format("02 Jan 2006 15:04")), "", 1, "", false, 0, "")
 
@@ -266,6 +353,59 @@ func (hc *HistoryController) ExportTrackingKeuanganPDF(c *gin.Context) {
 	c.Header("Content-Type", "application/pdf")
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", fileName))
 	c.Data(http.StatusOK, "application/pdf", buf.Bytes())
+}
+
+func buildTrackingSummaryText(periodLabel string, pieChart RincianKategori, grandTotal float64) string {
+	formatCurrency := func(value float64) string {
+		return fmt.Sprintf("Rp %.2f", value)
+	}
+
+	expenseRows := []struct {
+		Label string
+		Value float64
+	}{
+		{"Pulsa / Kuota", pieChart.PembayaranPulsa},
+		{"Tagihan Listrik", pieChart.PembayaranListrik},
+		{"Transfer Keluar", pieChart.TransferKeluar},
+	}
+
+	totalPengeluaran := pieChart.PembayaranPulsa + pieChart.PembayaranListrik + pieChart.TransferKeluar
+	totalPemasukan := pieChart.TopUp + pieChart.TransferMasuk
+
+	topExpenseLabel := "belum ada pengeluaran"
+	topExpenseValue := 0.0
+	for _, row := range expenseRows {
+		if row.Value > topExpenseValue {
+			topExpenseLabel = row.Label
+			topExpenseValue = row.Value
+		}
+	}
+
+	if totalPengeluaran <= 0 {
+		return fmt.Sprintf(
+			"Pada periode %s, belum ada pengeluaran yang tercatat. Total aktivitas keuangan yang terbaca adalah %s, dengan pemasukan sebesar %s.",
+			periodLabel,
+			formatCurrency(grandTotal),
+			formatCurrency(totalPemasukan),
+		)
+	}
+
+	balanceText := "lebih kecil dari"
+	if totalPengeluaran > totalPemasukan {
+		balanceText = "lebih besar dari"
+	} else if totalPengeluaran == totalPemasukan {
+		balanceText = "sama dengan"
+	}
+
+	return fmt.Sprintf(
+		"Pada periode %s, total pengeluaran user adalah %s. Pengeluaran terbesar berasal dari %s sebesar %s. Total pemasukan tercatat %s, sehingga pengeluaran periode ini %s pemasukan.",
+		periodLabel,
+		formatCurrency(totalPengeluaran),
+		topExpenseLabel,
+		formatCurrency(topExpenseValue),
+		formatCurrency(totalPemasukan),
+		balanceText,
+	)
 }
 
 func (hc *HistoryController) GetRiwayatTransferKeluar(c *gin.Context) {
