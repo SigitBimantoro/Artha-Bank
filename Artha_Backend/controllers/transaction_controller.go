@@ -86,12 +86,6 @@ func (tc *TransactionController) TopUpInternal(c *gin.Context) {
 		return
 	}
 
-	if err := tc.processAutoDebitAfterTopUp(tx, userID, &dompet); err != nil {
-		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
 	// 7. Simpan Permanen (Commit)
 	tx.Commit()
 
@@ -101,55 +95,6 @@ func (tc *TransactionController) TopUpInternal(c *gin.Context) {
 		"metode":         req.Metode,
 		"saldo_sekarang": dompet.Saldo,
 	})
-}
-
-func (tc *TransactionController) processAutoDebitAfterTopUp(tx *gorm.DB, userID uint, wallet *models.Wallet) error {
-	var savings []models.Saving
-	if err := tx.Where("user_id = ? AND auto_debit_periode != ? AND auto_debit_nominal > 0", userID, "NONE").Find(&savings).Error; err != nil {
-		return err
-	}
-
-	for _, saving := range savings {
-		if wallet.Saldo <= 0 {
-			break
-		}
-
-		remainingTarget := saving.TargetNominal - saving.SaldoTerkumpul
-		if remainingTarget <= 0 {
-			continue
-		}
-
-		autoAmount := saving.AutoDebitNominal
-		if autoAmount > remainingTarget {
-			autoAmount = remainingTarget
-		}
-		if autoAmount > wallet.Saldo {
-			continue
-		}
-
-		wallet.Saldo -= autoAmount
-		saving.SaldoTerkumpul += autoAmount
-
-		if err := tx.Save(wallet).Error; err != nil {
-			return err
-		}
-		if err := tx.Save(&saving).Error; err != nil {
-			return err
-		}
-
-		catatan := "Auto-Debit Top Up ke Wishlist: " + saving.NamaTarget
-		if err := tx.Create(&models.Transaction{
-			TransactionType: "SAVING_IN",
-			SenderID:        userID,
-			ReceiverID:      userID,
-			Amount:          autoAmount,
-			Notes:           catatan,
-		}).Error; err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func (tc *TransactionController) TransferUang(c *gin.Context) {
@@ -362,8 +307,9 @@ func (tc *TransactionController) BeliTokenListrik(c *gin.Context) {
 
 	// Balasan ke Flutter (Mengirimkan token agar bisa ditampilkan di layar besar-besar)
 	c.JSON(http.StatusOK, gin.H{
-		"message":       "Pembelian Token Listrik berhasil!",
-		"token_listrik": tokenPLN,
-		"sisa_saldo":    wallet.Saldo,
+		"message":        "Pembelian Token Listrik berhasil!",
+		"transaction_id": newLog.TransactionID,
+		"token_listrik":  tokenPLN,
+		"sisa_saldo":     wallet.Saldo,
 	})
 }

@@ -10,6 +10,7 @@ import (
 	"artha/services"
 
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/robfig/cron/v3"
@@ -48,9 +49,13 @@ func main() {
 
 	r.Static("/uploads", "./uploads")
 	routes.SetupRoutes(r, authController, transactionController, historyController, savingController, favoriteHandler)
-	c := cron.New()
+	loc, err := time.LoadLocation("Asia/Jakarta")
+	if err != nil {
+		loc = time.FixedZone("WIB", 7*60*60)
+	}
+	c := cron.New(cron.WithLocation(loc))
 	c.AddFunc("0 0 * * *", func() {
-		jobs.ProsesAutoDebit(config.DB) // (Ganti config.DB dengan variabel database-mu)
+		jobs.ProsesAutoDebit(config.DB)
 	})
 	c.Start()
 	r.Run("0.0.0.0:8080")

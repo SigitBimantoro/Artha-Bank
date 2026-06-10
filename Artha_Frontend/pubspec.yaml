@@ -18,6 +18,7 @@ dependencies:
   image_picker: ^1.2.1
   shared_preferences: ^2.5.5
   url_launcher: ^6.3.2
+  share_plus: ^10.0.0
   open_file: ^3.3.2       # Untuk membuka PDF
   path_provider: ^2.1.2   # Untuk akses lokasi penyimpanan file
 
@@ -30,7 +31,4 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/artha.jpg
-    - assets/GRADIENT.jpg
-    - assets/BGSEC.jpg
-    - assets/celengan.png
+    - assets/

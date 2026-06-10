@@ -430,6 +430,52 @@ func (ac *AuthController) GetProfile(c *gin.Context) {
 	})
 }
 
+func (ac *AuthController) GetUserByPhone(c *gin.Context) {
+	phone := c.Param("phone")
+	if phone == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Nomor telepon wajib diisi"})
+		return
+	}
+
+	phoneVariants := buildPhoneVariants(phone)
+	var user models.User
+	if err := ac.DB.Select("user_id, nama, phone_number").Where("phone_number IN ?", phoneVariants).First(&user).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Akun dengan nomor tersebut tidak ditemukan"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": gin.H{
+			"user_id":      user.UserID,
+			"nama":         user.Nama,
+			"phone_number": user.PhoneNumber,
+		},
+	})
+}
+
+func buildPhoneVariants(raw string) []string {
+	digits := regexp.MustCompile(`\D`).ReplaceAllString(strings.TrimSpace(raw), "")
+	variants := []string{digits}
+
+	if strings.HasPrefix(digits, "0") && len(digits) > 1 {
+		variants = append(variants, "62"+digits[1:])
+	}
+	if strings.HasPrefix(digits, "62") && len(digits) > 2 {
+		variants = append(variants, "0"+digits[2:])
+	}
+
+	seen := map[string]bool{}
+	unique := []string{}
+	for _, variant := range variants {
+		if variant == "" || seen[variant] {
+			continue
+		}
+		seen[variant] = true
+		unique = append(unique, variant)
+	}
+	return unique
+}
+
 func (ac *AuthController) UpdateProfile(c *gin.Context) {
 	userIDContext, _ := c.Get("userID")
 	userID := userIDContext.(uint)

@@ -19,14 +19,15 @@ class TrackingPage extends StatefulWidget {
 
 class _TrackingPageState extends State<TrackingPage> {
   int _selectedTab = 0;
-  double _totalNominal = 0;
   List<dynamic> _barChart = [];
 
-  double _pembayaranTotal = 0.0;
+  double _pemasukanTotal = 0.0;
+  double _pengeluaranTotal = 0.0;
   double _topUpTotal = 0.0;
-  double _transferTotal = 0.0;
+  double _transferMasukTotal = 0.0;
+  double _pembayaranTotal = 0.0;
+  double _transferKeluarTotal = 0.0;
 
-  List<ChartData> dataPengeluaran = [ChartData(0, const Color(0xFFE0E0E0))];
   OverlayEntry? _hoverOverlay;
   Timer? _touchOverlayTimer;
 
@@ -49,22 +50,27 @@ class _TrackingPageState extends State<TrackingPage> {
         final pieData = res['data']['pie_chart'];
         final barData = res['data']['bar_chart'] ?? [];
         if (pieData != null) {
-          // PENGAMAN: Gunakan max(0.0) agar tidak pernah ada nilai negatif yang merusak grafik
-          double p = max(0.0, (pieData['pembayaran'] ?? 0).toDouble());
-          double t = max(0.0, (pieData['top_up'] ?? 0).toDouble());
-          double tr = max(0.0, (pieData['transfer_keluar'] ?? 0).toDouble());
+          final topUp = _numberFrom(pieData, 'top_up');
+          final transferMasuk = _numberFrom(pieData, 'transfer_masuk');
+          final pembayaran = _paymentTotalFrom(pieData);
+          final transferKeluar = _numberFrom(pieData, 'transfer_keluar');
+          final pemasukanRaw = _numberFrom(pieData, 'pemasukan');
+          final pengeluaranRaw = _numberFrom(pieData, 'pengeluaran');
+          final pemasukan = pemasukanRaw > 0
+              ? pemasukanRaw
+              : topUp + transferMasuk;
+          final pengeluaran = pengeluaranRaw > 0
+              ? pengeluaranRaw
+              : pembayaran + transferKeluar;
 
           setState(() {
-            _totalNominal = p + t + tr;
-            _pembayaranTotal = p;
-            _topUpTotal = t;
-            _transferTotal = tr;
+            _pemasukanTotal = pemasukan;
+            _pengeluaranTotal = pengeluaran;
+            _topUpTotal = topUp;
+            _transferMasukTotal = transferMasuk;
+            _pembayaranTotal = pembayaran;
+            _transferKeluarTotal = transferKeluar;
             _barChart = barData;
-            dataPengeluaran = [
-              ChartData(p, const Color(0xFF2C265C)),
-              ChartData(t, const Color(0xFF4D55CC)),
-              ChartData(tr, const Color(0xFFD2CFF0)),
-            ];
           });
         }
       }
@@ -89,6 +95,32 @@ class _TrackingPageState extends State<TrackingPage> {
       return "Rp ${result == result.toInt() ? result.toInt() : result.toStringAsFixed(1)} rb";
     }
     return "Rp ${value.toInt()}";
+  }
+
+  double _numberFrom(dynamic source, String key) {
+    if (source is! Map) return 0;
+    final value = source[key];
+    return value is num ? max(0.0, value.toDouble()) : 0;
+  }
+
+  double _paymentTotalFrom(dynamic source) {
+    final direct = _numberFrom(source, 'pembayaran');
+    if (direct > 0) return direct;
+    return _numberFrom(source, 'pembayaran_pulsa') +
+        _numberFrom(source, 'pembayaran_listrik');
+  }
+
+  double _incomeTotalFrom(dynamic source) {
+    final direct = _numberFrom(source, 'pemasukan');
+    if (direct > 0) return direct;
+    return _numberFrom(source, 'top_up') +
+        _numberFrom(source, 'transfer_masuk');
+  }
+
+  double _expenseTotalFrom(dynamic source) {
+    final direct = _numberFrom(source, 'pengeluaran');
+    if (direct > 0) return direct;
+    return _paymentTotalFrom(source) + _numberFrom(source, 'transfer_keluar');
   }
 
   @override
@@ -142,159 +174,219 @@ class _TrackingPageState extends State<TrackingPage> {
               ),
               const SizedBox(height: 25),
 
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: primaryColor,
-                  borderRadius: BorderRadius.circular(25),
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          "Tracking Keuangan",
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                            fontSize: 13,
-                            fontFamily: 'Poppins',
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            _periodeText,
-                            style: const TextStyle(
-                              color: primaryColor,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              fontFamily: 'Poppins',
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 35),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Center(
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            SizedBox(
-                              width: 140,
-                              height: 140,
-                              child: CustomPaint(
-                                painter: DynamicDoughnutPainter(
-                                  dataList: dataPengeluaran,
-                                ),
-                              ),
-                            ),
-                            Text(
-                              _formatRupiahSingkat(_totalNominal),
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w900,
-                                color: primaryColor,
-                                fontFamily: 'Poppins',
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 15),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      alignment: WrapAlignment.center,
-                      children: [
-                        _buildLegendItem(const Color(0xFF2C265C), "Pembayaran"),
-                        _buildLegendItem(const Color(0xFF4D55CC), "Top up"),
-                        _buildLegendItem(const Color(0xFFD2CFF0), "Transfer"),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+              _buildPieChartCarousel(),
               const SizedBox(height: 20),
-
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: primaryColor,
-                  borderRadius: BorderRadius.circular(25),
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          "Statistik",
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                            fontSize: 13,
-                            fontFamily: 'Poppins',
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            _periodeText,
-                            style: const TextStyle(
-                              color: primaryColor,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              fontFamily: 'Poppins',
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 25),
-                    SizedBox(height: 160, child: _buildDynamicBarChart()),
-                    const SizedBox(height: 20),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      alignment: WrapAlignment.center,
-                      children: [
-                        _buildLegendItem(const Color(0xFF2C265C), "Pembayaran"),
-                        _buildLegendItem(const Color(0xFF4D55CC), "Top up"),
-                        _buildLegendItem(const Color(0xFFD2CFF0), "Transfer"),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+              _buildBarChartCard(),
             ],
           ),
         ),
       ),
     );
+  }
+
+  Widget _buildPieChartCarousel() {
+    return SizedBox(
+      height: 390,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        clipBehavior: Clip.none,
+        children: [
+          _buildPieCard(
+            title: 'Tracking Uang Masuk',
+            period: 'Hari ini',
+            total: _pemasukanTotal,
+            data: [
+              ChartData(_topUpTotal, const Color(0xFF2C265C)),
+              ChartData(_transferMasukTotal, const Color(0xFF6756C5)),
+            ],
+            legends: const [
+              _LegendData(Color(0xFF2C265C), 'Top up'),
+              _LegendData(Color(0xFF6756C5), 'Transfer Masuk'),
+            ],
+          ),
+          const SizedBox(width: 16),
+          _buildPieCard(
+            title: 'Tracking Uang Keluar',
+            period: 'Hari ini',
+            total: _pengeluaranTotal,
+            data: [
+              ChartData(_transferKeluarTotal, const Color(0xFF2C265C)),
+              ChartData(_pembayaranTotal, const Color(0xFF6756C5)),
+            ],
+            legends: const [
+              _LegendData(Color(0xFF2C265C), 'Transfer Keluar'),
+              _LegendData(Color(0xFF6756C5), 'Pembayaran'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPieCard({
+    required String title,
+    required String period,
+    required double total,
+    required List<ChartData> data,
+    required List<_LegendData> legends,
+  }) {
+    const Color primaryColor = Color(0xFF4D55CC);
+    final cardWidth = MediaQuery.of(context).size.width - 48;
+
+    return Container(
+      width: cardWidth,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: primaryColor,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  fontFamily: 'Poppins',
+                ),
+              ),
+              _buildPeriodBadge(period),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Expanded(
+            child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Center(
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    SizedBox(
+                      width: 162,
+                      height: 162,
+                      child: CustomPaint(
+                        painter: DynamicDoughnutPainter(dataList: data),
+                      ),
+                    ),
+                    Text(
+                      _formatRupiahSingkat(total),
+                      style: const TextStyle(
+                        color: primaryColor,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        fontFamily: 'Poppins',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              for (var i = 0; i < legends.length; i++) ...[
+                Expanded(child: _buildPillLegend(legends[i])),
+                if (i != legends.length - 1) const SizedBox(width: 12),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBarChartCard() {
+    const Color primaryColor = Color(0xFF4D55CC);
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: primaryColor,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                "Tracking Keuangan",
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontFamily: 'Poppins',
+                ),
+              ),
+              _buildPeriodBadge(_periodeText),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            height: 220,
+            padding: const EdgeInsets.fromLTRB(8, 10, 8, 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: _buildDynamicBarChart(),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: const [
+              Expanded(
+                child: _LegendPill(
+                  color: Color(0xFFD2CFF0),
+                  label: 'Pemasukan',
+                ),
+              ),
+              SizedBox(width: 12),
+              Expanded(
+                child: _LegendPill(
+                  color: Color(0xFF2C265C),
+                  label: 'Pengeluaran',
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPeriodBadge(String label) {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 122),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Color(0xFF4D55CC),
+          fontSize: 14,
+          fontWeight: FontWeight.w800,
+          fontFamily: 'Poppins',
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPillLegend(_LegendData data) {
+    return _LegendPill(color: data.color, label: data.label);
   }
 
   Widget _buildTabItem(String title, int index) {
@@ -327,71 +419,14 @@ class _TrackingPageState extends State<TrackingPage> {
     );
   }
 
-  Widget _buildLegendItem(Color dotColor, String label) {
-    String amountText = '';
-    if (label == 'Pembayaran')
-      amountText = _formatRupiahSingkat(_pembayaranTotal);
-    if (label == 'Top up') amountText = _formatRupiahSingkat(_topUpTotal);
-    if (label == 'Transfer') amountText = _formatRupiahSingkat(_transferTotal);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Color(0xFF4D55CC),
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              fontFamily: 'Poppins',
-            ),
-          ),
-          if (amountText.isNotEmpty) ...[
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEEF0FF),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                amountText,
-                style: const TextStyle(
-                  color: Color(0xFF2C265C),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
   Widget _buildDynamicBarChart() {
     final items = _barChart.isEmpty ? [] : _barChart;
 
-    // PENGAMAN: Hindari total menjadi negatif
     final maxValue = items.fold<double>(0, (maxVal, item) {
       final nominal = item['nominal'] ?? {};
-      final total =
-          max(0.0, (nominal['pembayaran'] ?? 0).toDouble()) +
-          max(0.0, (nominal['top_up'] ?? 0).toDouble()) +
-          max(0.0, (nominal['transfer_keluar'] ?? 0).toDouble());
-      return total > maxVal ? total : maxVal;
+      final pemasukan = _incomeTotalFrom(nominal);
+      final pengeluaran = _expenseTotalFrom(nominal);
+      return max(maxVal, max(pemasukan, pengeluaran));
     });
 
     if (items.isEmpty) {
@@ -413,12 +448,9 @@ class _TrackingPageState extends State<TrackingPage> {
       final item = items[i];
       final nominal = item['nominal'] ?? {};
 
-      // PENGAMAN: Pastikan 3 Variabel warna tidak ada yang negatif
-      final pembayaran = max(0.0, (nominal['pembayaran'] ?? 0).toDouble());
-      final topUp = max(0.0, (nominal['top_up'] ?? 0).toDouble());
-      final transfer = max(0.0, (nominal['transfer_keluar'] ?? 0).toDouble());
+      final pemasukan = _incomeTotalFrom(nominal);
+      final pengeluaran = _expenseTotalFrom(nominal);
 
-      // PENGAMAN: Mencegah error pembagian dengan 0 (Infinity/NaN)
       final scale = (maxValue <= 0) ? 0.0 : (1 / maxValue);
 
       final key = GlobalKey();
@@ -428,23 +460,22 @@ class _TrackingPageState extends State<TrackingPage> {
           padding: const EdgeInsets.symmetric(horizontal: 6.0),
           child: MouseRegion(
             onEnter: (e) =>
-                _showHoverOverlay(key, item, pembayaran, topUp, transfer),
+                _showHoverOverlay(key, item, pemasukan, pengeluaran),
             onExit: (e) => _removeHoverOverlay(),
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTapDown: (_) =>
-                  _showTouchOverlay(key, item, pembayaran, topUp, transfer),
+                  _showTouchOverlay(key, item, pemasukan, pengeluaran),
               onLongPressStart: (_) =>
-                  _showTouchOverlay(key, item, pembayaran, topUp, transfer),
+                  _showTouchOverlay(key, item, pemasukan, pengeluaran),
               onTapCancel: _scheduleTouchOverlayRemoval,
               child: Container(
                 key: key,
                 color: Colors.transparent,
-                child: _buildStackedBar(
+                child: _buildGroupedBar(
                   item['label'] ?? '-',
-                  pembayaran * scale,
-                  topUp * scale,
-                  transfer * scale,
+                  pemasukan * scale,
+                  pengeluaran * scale,
                 ),
               ),
             ),
@@ -466,11 +497,10 @@ class _TrackingPageState extends State<TrackingPage> {
   void _showTouchOverlay(
     GlobalKey key,
     dynamic item,
-    double pembayaran,
-    double topUp,
-    double transfer,
+    double pemasukan,
+    double pengeluaran,
   ) {
-    _showHoverOverlay(key, item, pembayaran, topUp, transfer);
+    _showHoverOverlay(key, item, pemasukan, pengeluaran);
     _scheduleTouchOverlayRemoval();
   }
 
@@ -482,9 +512,8 @@ class _TrackingPageState extends State<TrackingPage> {
   void _showHoverOverlay(
     GlobalKey key,
     dynamic item,
-    double pembayaran,
-    double topUp,
-    double transfer,
+    double pemasukan,
+    double pengeluaran,
   ) {
     _touchOverlayTimer?.cancel();
     _removeHoverOverlay();
@@ -502,11 +531,7 @@ class _TrackingPageState extends State<TrackingPage> {
           top: offset.dy - 160,
           child: Material(
             color: Colors.transparent,
-            child: _HoverCard(
-              pembayaran: pembayaran,
-              topUp: topUp,
-              transfer: transfer,
-            ),
+            child: _HoverCard(pemasukan: pemasukan, pengeluaran: pengeluaran),
           ),
         );
       },
@@ -520,7 +545,9 @@ class _TrackingPageState extends State<TrackingPage> {
     _touchOverlayTimer?.cancel();
     try {
       _hoverOverlay?.remove();
-    } catch (e) {}
+    } catch (_) {
+      // Overlay may already be detached during fast route changes.
+    }
     _hoverOverlay = null;
   }
 
@@ -531,88 +558,45 @@ class _TrackingPageState extends State<TrackingPage> {
     super.dispose();
   }
 
-  Widget _buildStackedBar(
+  Widget _buildGroupedBar(
     String label,
-    double darkPct,
-    double midPct,
-    double lightPct,
+    double pemasukanPct,
+    double pengeluaranPct,
   ) {
     const double maxBarHeight = 120.0;
 
-    // Pastikan persentase absolut aman (antara 0.0 hingga 1.0)
-    darkPct = darkPct.clamp(0.0, 1.0);
-    midPct = midPct.clamp(0.0, 1.0);
-    lightPct = lightPct.clamp(0.0, 1.0);
-
-    double gapHeight = 0;
-    if (lightPct > 0 && (midPct > 0 || darkPct > 0)) gapHeight += 4;
-    if (midPct > 0 && darkPct > 0) gapHeight += 4;
-
-    // PENGAMAN EKSTRA: Mencegah tinggi Container menjadi negatif
-    double availableHeight = max(0.0, maxBarHeight - 12 - gapHeight);
+    pemasukanPct = pemasukanPct.clamp(0.0, 1.0);
+    pengeluaranPct = pengeluaranPct.clamp(0.0, 1.0);
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        Container(
-          width: 48,
+        SizedBox(
+          width: 58,
           height: maxBarHeight,
-          decoration: BoxDecoration(
-            color: const Color(0xFFEEF0FF),
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: const [
-              BoxShadow(
-                color: Colors.black12,
-                blurRadius: 6,
-                offset: Offset(0, 2),
-              ),
-            ],
-          ),
-          alignment: Alignment.bottomCenter,
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.end,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              if (lightPct > 0)
-                Container(
-                  height: max(0.0, availableHeight * lightPct), // PENGAMAN
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFD2CFF0),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              if (lightPct > 0 && (midPct > 0 || darkPct > 0))
-                const SizedBox(height: 4),
-              if (midPct > 0)
-                Container(
-                  height: max(0.0, availableHeight * midPct), // PENGAMAN
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF4D55CC),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              if (midPct > 0 && darkPct > 0) const SizedBox(height: 4),
-              if (darkPct > 0)
-                Container(
-                  height: max(0.0, availableHeight * darkPct), // PENGAMAN
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2C265C),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
+              _buildSingleBar(
+                max(10.0, maxBarHeight * pemasukanPct),
+                const Color(0xFFD2CFF0),
+              ),
+              const SizedBox(width: 8),
+              _buildSingleBar(
+                max(10.0, maxBarHeight * pengeluaranPct),
+                const Color(0xFF2C265C),
+              ),
             ],
           ),
         ),
         const SizedBox(height: 10),
         Container(
-          width: 28,
-          height: 28,
+          width: 34,
+          height: 34,
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
           ),
           alignment: Alignment.center,
           child: Text(
@@ -628,25 +612,82 @@ class _TrackingPageState extends State<TrackingPage> {
       ],
     );
   }
+
+  Widget _buildSingleBar(double height, Color color) {
+    return Container(
+      width: 20,
+      height: height,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(12),
+      ),
+    );
+  }
+}
+
+class _LegendData {
+  final Color color;
+  final String label;
+
+  const _LegendData(this.color, this.label);
+}
+
+class _LegendPill extends StatelessWidget {
+  final Color color;
+  final String label;
+
+  const _LegendPill({required this.color, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 38,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 11,
+            height: 11,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFF4D55CC),
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                fontFamily: 'Poppins',
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _HoverCard extends StatelessWidget {
-  final double pembayaran;
-  final double topUp;
-  final double transfer;
+  final double pemasukan;
+  final double pengeluaran;
 
-  const _HoverCard({
-    required this.pembayaran,
-    required this.topUp,
-    required this.transfer,
-  });
+  const _HoverCard({required this.pemasukan, required this.pengeluaran});
 
   String _format(double v) {
     if (v <= 0) return 'Rp 0';
-    if (v >= 1000000)
+    if (v >= 1000000) {
       return 'Rp ${(v / 1000000).toStringAsFixed(v % 1000000 == 0 ? 0 : 1)} jt';
-    if (v >= 1000)
+    }
+    if (v >= 1000) {
       return 'Rp ${(v / 1000).toStringAsFixed(v % 1000 == 0 ? 0 : 1)} rb';
+    }
     return 'Rp ${v.toInt()}';
   }
 
@@ -659,7 +700,7 @@ class _HoverCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.15),
+            color: Colors.black.withValues(alpha: 0.15),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
@@ -679,11 +720,13 @@ class _HoverCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          _rowItem(const Color(0xFF2C265C), 'Pembayaran', _format(pembayaran)),
+          _rowItem(const Color(0xFFD2CFF0), 'Pemasukan', _format(pemasukan)),
           const SizedBox(height: 8),
-          _rowItem(const Color(0xFF4D55CC), 'Top up', _format(topUp)),
-          const SizedBox(height: 8),
-          _rowItem(const Color(0xFFD2CFF0), 'Transfer', _format(transfer)),
+          _rowItem(
+            const Color(0xFF2C265C),
+            'Pengeluaran',
+            _format(pengeluaran),
+          ),
         ],
       ),
     );

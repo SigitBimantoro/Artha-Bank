@@ -4,8 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   // Gunakan 10.0.2.2 untuk emulator Android, atau IP fisik jika pakai HP
-  static const String serverUrl = 'http://10.27.250.4:8080';
-  static const String baseUrl = 'http://10.27.250.4:8080/api';
+  static const String serverUrl = 'http://192.168.0.105:8080';
+  static const String baseUrl = 'http://192.168.0.105:8080/api';
 
   static String resolveMediaUrl(String? path) {
     if (path == null || path.isEmpty) return '';
@@ -78,6 +78,19 @@ class ApiService {
         await prefs.setString('token', resData['data']['token']);
       }
       return resData;
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getUserByPhone(String phoneNumber) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('$baseUrl/users/by-phone/$phoneNumber'),
+        headers: headers,
+      );
+      return _processResponse(response);
     } catch (e) {
       return {'success': false, 'message': e.toString()};
     }

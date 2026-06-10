@@ -10,7 +10,7 @@ class RiwayatPage extends StatefulWidget {
 
 class _RiwayatPageState extends State<RiwayatPage> {
   static const Color primaryColor = Color(0xFF4D55CC);
-  static const Color pageBg = Color(0xFFFAFAFC);
+  static const Color pageBg = Color(0xFFFAFAFA);
 
   final List<String> _filters = const [
     'Semua',
@@ -94,18 +94,19 @@ class _RiwayatPageState extends State<RiwayatPage> {
     return Scaffold(
       backgroundColor: pageBg,
       body: SafeArea(
+        bottom: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(30, 28, 28, 18),
+              padding: const EdgeInsets.fromLTRB(30, 28, 28, 20),
               child: Row(
                 children: [
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
                     child: Container(
-                      width: 54,
-                      height: 54,
+                      width: 58,
+                      height: 58,
                       decoration: const BoxDecoration(
                         color: primaryColor,
                         shape: BoxShape.circle,
@@ -113,17 +114,17 @@ class _RiwayatPageState extends State<RiwayatPage> {
                       child: const Icon(
                         Icons.arrow_back,
                         color: Colors.white,
-                        size: 28,
+                        size: 29,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 28),
+                  const SizedBox(width: 26),
                   const Text(
                     'Riwayat',
                     style: TextStyle(
                       color: primaryColor,
                       fontFamily: 'Poppins',
-                      fontSize: 34,
+                      fontSize: 33,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
@@ -131,12 +132,12 @@ class _RiwayatPageState extends State<RiwayatPage> {
               ),
             ),
             SizedBox(
-              height: 72,
+              height: 46,
               child: ListView.separated(
                 padding: const EdgeInsets.symmetric(horizontal: 30),
                 scrollDirection: Axis.horizontal,
                 itemCount: _filters.length,
-                separatorBuilder: (context, index) => const SizedBox(width: 18),
+                separatorBuilder: (context, index) => const SizedBox(width: 10),
                 itemBuilder: (context, index) {
                   final filter = _filters[index];
                   final selected = filter == _selectedFilter;
@@ -169,7 +170,7 @@ class _RiwayatPageState extends State<RiwayatPage> {
                               ],
                             )
                           : ListView(
-                              padding: const EdgeInsets.only(top: 14),
+                              padding: const EdgeInsets.only(top: 12),
                               children: _buildGroupedList(),
                             ),
                     ),
@@ -184,21 +185,21 @@ class _RiwayatPageState extends State<RiwayatPage> {
     return GestureDetector(
       onTap: () => setState(() => _selectedFilter = label),
       child: Container(
-        height: 50,
-        constraints: const BoxConstraints(minWidth: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 24),
+        height: 36,
+        constraints: const BoxConstraints(minWidth: 96),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: selected ? primaryColor : Colors.transparent,
-          border: Border.all(color: primaryColor, width: 2.4),
-          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: primaryColor, width: 1.8),
+          borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
           label,
           style: TextStyle(
             color: selected ? Colors.white : primaryColor,
             fontFamily: 'Poppins',
-            fontSize: 21,
+            fontSize: 14,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -211,13 +212,13 @@ class _RiwayatPageState extends State<RiwayatPage> {
     _groupedTransactions.forEach((month, transactions) {
       widgets.add(
         Padding(
-          padding: const EdgeInsets.fromLTRB(42, 28, 30, 18),
+          padding: const EdgeInsets.fromLTRB(42, 24, 30, 16),
           child: Text(
             month,
             style: const TextStyle(
               color: primaryColor,
               fontFamily: 'Poppins',
-              fontSize: 28,
+              fontSize: 27,
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -237,20 +238,20 @@ class _RiwayatPageState extends State<RiwayatPage> {
     final view = _TransactionView.from(trx);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 42, vertical: 24),
-      constraints: const BoxConstraints(minHeight: 136),
+      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 22),
+      constraints: const BoxConstraints(minHeight: 128),
       child: Row(
         children: [
           Container(
-            width: 66,
-            height: 66,
+            width: 58,
+            height: 58,
             decoration: BoxDecoration(
               color: view.iconColor,
               shape: BoxShape.circle,
             ),
-            child: Icon(view.icon, color: Colors.white, size: 34),
+            child: Icon(view.icon, color: Colors.white, size: 32),
           ),
-          const SizedBox(width: 28),
+          const SizedBox(width: 24),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -263,7 +264,7 @@ class _RiwayatPageState extends State<RiwayatPage> {
                   style: const TextStyle(
                     color: primaryColor,
                     fontFamily: 'Poppins',
-                    fontSize: 23,
+                    fontSize: 22,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -275,7 +276,7 @@ class _RiwayatPageState extends State<RiwayatPage> {
                   style: const TextStyle(
                     color: primaryColor,
                     fontFamily: 'Poppins',
-                    fontSize: 17,
+                    fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -286,22 +287,27 @@ class _RiwayatPageState extends State<RiwayatPage> {
                   style: const TextStyle(
                     color: primaryColor,
                     fontFamily: 'Poppins',
-                    fontSize: 16,
+                    fontSize: 15,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 12),
-          Text(
-            view.amountText,
-            textAlign: TextAlign.right,
-            style: TextStyle(
-              color: view.amountColor,
-              fontFamily: 'Poppins',
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
+          const SizedBox(width: 10),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 118),
+            child: Text(
+              view.amountText,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                color: view.amountColor,
+                fontFamily: 'Poppins',
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+              ),
             ),
           ),
         ],
@@ -437,9 +443,7 @@ class _TransactionView {
       amountText = '+Rp ${RiwayatPageStateAccess.rupiah(amount)}';
     } else if (type == 'PULSA' || type == 'PLN') {
       title = 'Pembayaran';
-      subtitle = type == 'PLN'
-          ? 'Listrik PLN'
-          : (notes.isEmpty ? 'Pulsa' : notes);
+      subtitle = type == 'PLN' ? 'Listrik PLN' : 'Pulsa dan Data';
       iconColor = red;
       icon = Icons.arrow_upward;
       amountColor = red;

@@ -30,6 +30,7 @@ func SetupRoutes(r *gin.Engine, authService *controllers.AuthController, transac
 		protected.POST("/change-password", authService.ChangePassword)
 		protected.POST("/change-pin", authService.ChangePin)
 		protected.GET("/profile", authService.GetProfile)
+		protected.GET("/users/by-phone/:phone", authService.GetUserByPhone)
 		protected.PUT("/profile", authService.UpdateProfile)
 		protected.GET("/history", historyService.GetRiwayatTransaksi)
 		protected.GET("/history/summary", historyService.GetTrackingKeuangan)
