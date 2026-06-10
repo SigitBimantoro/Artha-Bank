@@ -34,6 +34,12 @@ type PLNReq struct {
 	Amount      float64 `json:"amount" binding:"required,gt=0"`
 }
 
+type QRISReq struct {
+	MerchantName string  `json:"merchant_name" binding:"required"`
+	Amount       float64 `json:"amount" binding:"required,gt=0"`
+	Payload      string  `json:"payload"`
+}
+
 // Fungsi Eksekusi Top Up
 func (tc *TransactionController) TopUpInternal(c *gin.Context) {
 	// 1. Ambil UserID dari Middleware JWT
@@ -310,6 +316,64 @@ func (tc *TransactionController) BeliTokenListrik(c *gin.Context) {
 		"message":        "Pembelian Token Listrik berhasil!",
 		"transaction_id": newLog.TransactionID,
 		"token_listrik":  tokenPLN,
+		"sisa_saldo":     wallet.Saldo,
+	})
+}
+
+// ==========================================
+// FITUR PEMBAYARAN QRIS
+// ==========================================
+func (tc *TransactionController) BayarQRIS(c *gin.Context) {
+	userIDContext, _ := c.Get("userID")
+	userID := userIDContext.(uint)
+
+	var req QRISReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Data pembayaran QRIS tidak valid"})
+		return
+	}
+
+	tx := tc.DB.Begin()
+
+	var wallet models.Wallet
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("user_id = ?", userID).First(&wallet).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengakses dompet"})
+		return
+	}
+
+	if wallet.Saldo < req.Amount {
+		tx.Rollback()
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Maaf, saldo Anda tidak mencukupi"})
+		return
+	}
+
+	wallet.Saldo -= req.Amount
+	if err := tx.Save(&wallet).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memotong saldo"})
+		return
+	}
+
+	newLog := models.Transaction{
+		TransactionType: "QRIS",
+		SenderID:        userID,
+		ReceiverID:      userID,
+		Amount:          req.Amount,
+		Notes:           "Pembayaran QRIS ke " + req.MerchantName,
+	}
+	if err := tx.Create(&newLog).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mencatat riwayat mutasi"})
+		return
+	}
+
+	tx.Commit()
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":        "Pembayaran QRIS berhasil!",
+		"transaction_id": newLog.TransactionID,
+		"merchant_name":  req.MerchantName,
 		"sisa_saldo":     wallet.Saldo,
 	})
 }

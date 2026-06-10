@@ -25,6 +25,7 @@ func SetupRoutes(r *gin.Engine, authService *controllers.AuthController, transac
 		protected.POST("/transfer", middlewares.CekPIN(config.DB), transactionService.TransferUang)
 		protected.POST("/payment/pulsa", middlewares.CekPIN(config.DB), transactionService.BeliPulsa)
 		protected.POST("/payment/pln", middlewares.CekPIN(config.DB), transactionService.BeliTokenListrik)
+		protected.POST("/payment/qris", middlewares.CekPIN(config.DB), transactionService.BayarQRIS)
 		protected.POST("/set-pin", authService.SetUserPin)
 		protected.POST("/verify-password", authService.VerifyPassword)
 		protected.POST("/change-password", authService.ChangePassword)

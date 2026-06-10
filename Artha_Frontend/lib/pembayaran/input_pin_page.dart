@@ -6,7 +6,7 @@ class InputPinPage extends StatefulWidget {
   final String? phoneNumber;
   final double amount;
   final String? notes;
-  final String? type; // 'TRANSFER', 'PULSA', 'PLN', 'TOPUP'
+  final String? type; // 'TRANSFER', 'PULSA', 'PLN', 'TOPUP', 'QRIS'
   final String? target;
   final bool skipConfirmation;
 
@@ -60,6 +60,13 @@ class _InputPinPageState extends State<InputPinPage> {
         amountToSend,
         widget.target ?? 'Bank',
       );
+    } else if (widget.type == 'QRIS') {
+      res = await ApiService.bayarQris(
+        widget.target ?? 'Merchant QRIS',
+        amountToSend,
+        _typedPin,
+        payload: widget.notes ?? '',
+      );
     } else {
       res = {'success': false, 'message': 'Tipe transaksi tidak dikenal'};
     }
@@ -68,6 +75,9 @@ class _InputPinPageState extends State<InputPinPage> {
       setState(() => _isLoading = false);
 
       String targetName = widget.target ?? widget.phoneNumber ?? '-';
+      if (widget.type == 'QRIS' && res['data'] != null) {
+        targetName = (res['data']['merchant_name'] ?? targetName).toString();
+      }
       final tokenListrik = widget.type == 'PLN' && res['data'] != null
           ? (res['data']['token_listrik'] ?? '').toString()
           : null;
