@@ -10,8 +10,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-    
-  mobile_scanner: ^6.0.2 # Gunakan versi terbaru
+
+  mobile_scanner: ^6.0.2
   cupertino_icons: ^1.0.8
   google_fonts: ^6.2.1
   http: ^1.6.0
@@ -19,13 +19,21 @@ dependencies:
   shared_preferences: ^2.5.5
   url_launcher: ^6.3.2
   share_plus: ^10.0.0
-  open_file: ^3.3.2       # Untuk membuka PDF
-  path_provider: ^2.1.2   # Untuk akses lokasi penyimpanan file
+  open_file: ^3.3.2
+  path_provider: ^2.1.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/app_icon.png"
+  adaptive_icon_background: "#4D55CC"
+  adaptive_icon_foreground: "assets/app_icon.png"
 
 flutter:
   uses-material-design: true
