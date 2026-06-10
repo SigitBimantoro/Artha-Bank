@@ -6,77 +6,91 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
-// Fungsi ini akan dieksekusi oleh Robot Cron
+// ProsesAutoDebit berjalan berdasarkan jadwal cron,
+// bukan saat top up masuk.
 func ProsesAutoDebit(db *gorm.DB) {
-	fmt.Println("[ROBOT] 🤖 Memulai pengecekan Auto-Debit Tabungan...")
+	fmt.Println("[ROBOT] Memulai pengecekan Auto-Debit Tabungan...")
 
-	// 1. Cari semua tabungan yang fitur Auto-Debitnya menyala
 	var savings []models.Saving
-	if err := db.Where("auto_debit_periode != ?", "NONE").Find(&savings).Error; err != nil {
-		fmt.Println("[ROBOT] ❌ Gagal mengambil data tabungan:", err)
+	if err := db.Where("auto_debit_periode != ? AND auto_debit_nominal > 0", "NONE").Find(&savings).Error; err != nil {
+		fmt.Println("[ROBOT] Gagal mengambil data tabungan:", err)
 		return
 	}
 
-	waktuSekarang := time.Now().UTC()
+	waktuSekarang := time.Now()
 
-	// 2. Cek satu per satu tabungan tersebut
 	for _, saving := range savings {
-		harusDipotong := false
-
-		// 3. Tentukan apakah hari ini adalah jadwal potong saldonya
-		if saving.AutoDebitPeriode == "DAILY" {
-			harusDipotong = true // Tiap hari dipotong
-		} else if saving.AutoDebitPeriode == "WEEKLY" && waktuSekarang.Weekday() == time.Monday {
-			harusDipotong = true // Hanya dipotong setiap hari Senin
-		} else if saving.AutoDebitPeriode == "MONTHLY" && waktuSekarang.Day() == 1 {
-			harusDipotong = true // Hanya dipotong setiap tanggal 1
+		if !shouldProcessAutoDebit(saving.AutoDebitPeriode, waktuSekarang) {
+			continue
 		}
 
-		if !harusDipotong {
-			continue // Lewati jika bukan jadwalnya
-		}
-
-		// ==========================================
-		// 4. EKSEKUSI PEMOTONGAN SALDO (TRANSAKSI AMAN)
-		// ==========================================
 		tx := db.Begin()
 
-		// Cari dompet utamanya
 		var wallet models.Wallet
-		if err := tx.Where("user_id = ?", saving.UserID).First(&wallet).Error; err != nil {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("user_id = ?", saving.UserID).
+			First(&wallet).Error; err != nil {
 			tx.Rollback()
 			continue
 		}
 
-		// Cek apakah saldo dompet cukup untuk dipotong
-		if wallet.Saldo < saving.AutoDebitNominal {
-			fmt.Printf("[ROBOT] ⚠️ Saldo User ID %d tidak cukup untuk Auto-Debit '%s'\n", saving.UserID, saving.NamaTarget)
+		var lockedSaving models.Saving
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("saving_id = ?", saving.SavingID).
+			First(&lockedSaving).Error; err != nil {
 			tx.Rollback()
 			continue
 		}
 
-		// Pindahkan Uang
-		wallet.Saldo -= saving.AutoDebitNominal
-		saving.SaldoTerkumpul += saving.AutoDebitNominal
+		if wallet.Saldo < lockedSaving.AutoDebitNominal {
+			fmt.Printf("[ROBOT] Saldo User ID %d tidak cukup untuk Auto-Debit '%s'\n", lockedSaving.UserID, lockedSaving.NamaTarget)
+			tx.Rollback()
+			continue
+		}
 
-		tx.Save(&wallet)
-		tx.Save(&saving)
+		wallet.Saldo -= lockedSaving.AutoDebitNominal
+		lockedSaving.SaldoTerkumpul += lockedSaving.AutoDebitNominal
 
-		// Catat ke History Transaksi
-		catatan := "Auto-Debit Tabungan: " + saving.NamaTarget
-		tx.Create(&models.Transaction{
+		if err := tx.Save(&wallet).Error; err != nil {
+			tx.Rollback()
+			continue
+		}
+		if err := tx.Save(&lockedSaving).Error; err != nil {
+			tx.Rollback()
+			continue
+		}
+
+		catatan := "Auto-Debit Tabungan: " + lockedSaving.NamaTarget
+		if err := tx.Create(&models.Transaction{
 			TransactionType: "SAVING_IN",
-			SenderID:        saving.UserID,
-			ReceiverID:      saving.UserID,
-			Amount:          saving.AutoDebitNominal,
+			SenderID:        lockedSaving.UserID,
+			ReceiverID:      lockedSaving.UserID,
+			Amount:          lockedSaving.AutoDebitNominal,
 			Notes:           catatan,
-		})
+		}).Error; err != nil {
+			tx.Rollback()
+			continue
+		}
 
 		tx.Commit()
-		fmt.Printf("[ROBOT] ✅ Berhasil memotong Rp %.0f untuk '%s' (User %d)\n", saving.AutoDebitNominal, saving.NamaTarget, saving.UserID)
+		fmt.Printf("[ROBOT] Berhasil memotong Rp %.0f untuk '%s' (User %d)\n", lockedSaving.AutoDebitNominal, lockedSaving.NamaTarget, lockedSaving.UserID)
 	}
-	
-	fmt.Println("[ROBOT] 🏁 Pengecekan Auto-Debit selesai.")
+
+	fmt.Println("[ROBOT] Pengecekan Auto-Debit selesai.")
+}
+
+func shouldProcessAutoDebit(periode string, now time.Time) bool {
+	switch periode {
+	case "DAILY":
+		return true
+	case "WEEKLY":
+		return now.Weekday() == time.Monday
+	case "MONTHLY":
+		return now.Day() == 1
+	default:
+		return false
+	}
 }

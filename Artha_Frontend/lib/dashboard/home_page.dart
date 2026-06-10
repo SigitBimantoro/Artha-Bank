@@ -68,16 +68,14 @@ class _HomePageState extends State<HomePage> {
       if (trackingRes['success'] && trackingRes['data'] != null) {
         final pieData = trackingRes['data']['pie_chart'];
         if (pieData != null) {
-          double p = (pieData['pembayaran'] ?? 0).toDouble();
-          double t = 0;
-          double tr = (pieData['transfer_keluar'] ?? 0).toDouble();
+          double pemasukan = (pieData['pemasukan'] ?? 0).toDouble();
+          double pengeluaran = (pieData['pengeluaran'] ?? 0).toDouble();
 
           setState(() {
-            _totalPengeluaran = p + t + tr;
+            _totalPengeluaran = pemasukan + pengeluaran;
             dataPengeluaran = [
-              ChartData(p, const Color(0xFF2C265C)),
-              ChartData(t, const Color(0xFF4D55CC)),
-              ChartData(tr, const Color(0xFFD2CFF0)),
+              ChartData(pemasukan, const Color(0xFFD2CFF0)),
+              ChartData(pengeluaran, const Color(0xFF2C265C)),
             ];
           });
         }
@@ -320,7 +318,7 @@ class _HomePageState extends State<HomePage> {
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: primaryColor.withOpacity(0.12),
+                            color: primaryColor.withValues(alpha: 0.12),
                           ),
                         ),
                         child: Column(
@@ -328,13 +326,13 @@ class _HomePageState extends State<HomePage> {
                             Icon(
                               Icons.receipt_long,
                               size: 34,
-                              color: primaryColor.withOpacity(0.35),
+                              color: primaryColor.withValues(alpha: 0.35),
                             ),
                             const SizedBox(height: 12),
                             Text(
                               "Belum ada transaksi",
                               style: TextStyle(
-                                color: primaryColor.withOpacity(0.6),
+                                color: primaryColor.withValues(alpha: 0.6),
                                 fontFamily: 'Poppins',
                               ),
                             ),

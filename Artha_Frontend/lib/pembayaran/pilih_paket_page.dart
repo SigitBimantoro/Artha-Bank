@@ -253,6 +253,140 @@ class _PilihPaketPageState extends State<PilihPaketPage> {
     );
   }
 
+  void _showDataDetailSheet(int index) {
+    const Color primaryColor = Color(0xFF4D55CC);
+    final item = listData[index];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.all(Radius.circular(34)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 54,
+                      height: 54,
+                      decoration: BoxDecoration(
+                        color: primaryColor,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(
+                        Icons.phone_android,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Detail Paket Data",
+                            style: TextStyle(
+                              color: primaryColor,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
+                              fontFamily: 'Poppins',
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            widget.phoneNumber,
+                            style: const TextStyle(
+                              color: primaryColor,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              fontFamily: 'Poppins',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                Container(height: 2, color: primaryColor),
+                const SizedBox(height: 18),
+                _buildDetailRow("Jenis Paket", item['type']!),
+                const SizedBox(height: 14),
+                _buildDetailRow("Kuota", item['size']!),
+                const SizedBox(height: 14),
+                _buildDetailRow("Harga", item['price']!),
+                const SizedBox(height: 26),
+                SizedBox(
+                  height: 52,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      setState(() => selectedDataIndex = index);
+                      Navigator.pop(sheetContext);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(28),
+                      ),
+                    ),
+                    child: const Text(
+                      "Pilih Paket",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        fontFamily: 'Poppins',
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    const Color primaryColor = Color(0xFF4D55CC);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: primaryColor,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            fontFamily: 'Poppins',
+          ),
+        ),
+        Text(
+          value,
+          style: const TextStyle(
+            color: primaryColor,
+            fontSize: 14,
+            fontWeight: FontWeight.w900,
+            fontFamily: 'Poppins',
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     const Color primaryColor = Color(0xFF4D55CC);
@@ -447,7 +581,7 @@ class _PilihPaketPageState extends State<PilihPaketPage> {
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  color: Colors.black.withValues(alpha: 0.1),
                   blurRadius: 5,
                   offset: const Offset(0, 3),
                 ),
@@ -497,7 +631,7 @@ class _PilihPaketPageState extends State<PilihPaketPage> {
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  color: Colors.black.withValues(alpha: 0.1),
                   blurRadius: 5,
                   offset: const Offset(0, 3),
                 ),
@@ -542,22 +676,25 @@ class _PilihPaketPageState extends State<PilihPaketPage> {
                     ],
                   ),
                 ),
-                Container(
-                  width: double.infinity,
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  padding: const EdgeInsets.symmetric(vertical: 7),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF4D55CC),
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                  child: const Center(
-                    child: Text(
-                      "Detail",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'Poppins',
+                GestureDetector(
+                  onTap: () => _showDataDetailSheet(index),
+                  child: Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    padding: const EdgeInsets.symmetric(vertical: 7),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF4D55CC),
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        "Detail",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'Poppins',
+                        ),
                       ),
                     ),
                   ),

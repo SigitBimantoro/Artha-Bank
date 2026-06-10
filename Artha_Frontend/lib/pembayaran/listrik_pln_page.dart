@@ -1,4 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+
+import '../services/api_service.dart';
 import 'input_pin_page.dart';
 
 class ListrikPlnPage extends StatefulWidget {
@@ -31,11 +35,100 @@ class _ListrikPlnPageState extends State<ListrikPlnPage> {
   ];
 
   int? _selectedAmount;
+  Timer? _lookupTimer;
+  String _customerName = 'Memuat...';
+  bool _isLookupLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _lookupCustomerName();
+  }
 
   @override
   void dispose() {
+    _lookupTimer?.cancel();
     _meterController.dispose();
     super.dispose();
+  }
+
+  void _scheduleCustomerLookup() {
+    _lookupTimer?.cancel();
+    _lookupTimer = Timer(
+      const Duration(milliseconds: 500),
+      _lookupCustomerName,
+    );
+  }
+
+  Future<void> _lookupCustomerName() async {
+    final phone = _meterController.text.trim();
+    if (phone.length < 10) {
+      if (mounted) {
+        setState(() {
+          _customerName = 'Nomor belum valid';
+          _isLookupLoading = false;
+        });
+      }
+      return;
+    }
+
+    setState(() => _isLookupLoading = true);
+    final res = await ApiService.getUserByPhone(phone);
+    if (!mounted || phone != _meterController.text.trim()) return;
+
+    if (res['success'] == true && res['data']?['data'] != null) {
+      final data = res['data']['data'];
+      setState(() {
+        _customerName = (data['nama'] ?? 'Pelanggan').toString();
+        _isLookupLoading = false;
+      });
+    } else {
+      final ownAccount = await _lookupOwnAccount(phone);
+      if (!mounted || phone != _meterController.text.trim()) return;
+      if (ownAccount != null) {
+        setState(() {
+          _customerName = ownAccount;
+          _isLookupLoading = false;
+        });
+        return;
+      }
+
+      setState(() {
+        _customerName = 'Pelanggan PLN';
+        _isLookupLoading = false;
+      });
+    }
+  }
+
+  Future<String?> _lookupOwnAccount(String phone) async {
+    final profile = await ApiService.getProfile();
+    if (profile['success'] != true || profile['data']?['data'] == null) {
+      return null;
+    }
+
+    final data = profile['data']['data'];
+    final profilePhone = (data['phone_number'] ?? '').toString();
+    if (!_isSamePhone(phone, profilePhone)) return null;
+    return (data['nama'] ?? 'Pelanggan').toString();
+  }
+
+  bool _isSamePhone(String a, String b) {
+    final variantsA = _phoneVariants(a);
+    final variantsB = _phoneVariants(b);
+    return variantsA.any(variantsB.contains);
+  }
+
+  Set<String> _phoneVariants(String value) {
+    final digits = value.replaceAll(RegExp(r'\D'), '');
+    final variants = <String>{digits};
+    if (digits.startsWith('0') && digits.length > 1) {
+      variants.add('62${digits.substring(1)}');
+    }
+    if (digits.startsWith('62') && digits.length > 2) {
+      variants.add('0${digits.substring(2)}');
+    }
+    variants.remove('');
+    return variants;
   }
 
   String _formatTokenLabel(int amount) {
@@ -240,7 +333,8 @@ class _ListrikPlnPageState extends State<ListrikPlnPage> {
         _meterController.text.trim().isNotEmpty && _selectedAmount != null;
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      resizeToAvoidBottomInset: false,
+      backgroundColor: const Color(0xFFF9F9F9),
       body: Column(
         children: [
           Expanded(
@@ -249,88 +343,115 @@ class _ListrikPlnPageState extends State<ListrikPlnPage> {
               decoration: const BoxDecoration(
                 color: primaryColor,
                 borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(72),
-                  bottomRight: Radius.circular(72),
+                  bottomLeft: Radius.circular(50),
+                  bottomRight: Radius.circular(50),
                 ),
               ),
               child: SafeArea(
                 bottom: false,
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(34, 20, 34, 44),
-                  child: Column(
-                    children: [
-                      _buildHeader(),
-                      const SizedBox(height: 110),
-                      _buildCustomerNumberCard(),
-                      const SizedBox(height: 18),
-                      _buildCustomerNameCard(),
-                      const SizedBox(height: 34),
-                      const Text(
-                        'Pilih Jumlah Token',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.w900,
-                          fontFamily: 'Poppins',
-                        ),
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Column(
+                        children: [
+                          _buildHeader(),
+                          const SizedBox(height: 24),
+                          _buildCustomerNumberCard(),
+                          const SizedBox(height: 14),
+                          _buildCustomerNameCard(),
+                          const SizedBox(height: 22),
+                        ],
                       ),
-                      const SizedBox(height: 28),
-                      _buildTokenGrid(),
-                    ],
-                  ),
+                    ),
+                    Stack(
+                      alignment: Alignment.bottomCenter,
+                      children: [
+                        Container(
+                          height: 2,
+                          width: double.infinity,
+                          color: Colors.white,
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 12),
+                          child: Text(
+                            'Tagihan Listrik',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              fontFamily: 'Poppins',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    const Text(
+                      'Pilih Jumlah Token',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        fontFamily: 'Poppins',
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Expanded(child: _buildTokenGrid()),
+                  ],
                 ),
               ),
             ),
           ),
-          Container(
-            color: Colors.black,
-            padding: const EdgeInsets.fromLTRB(34, 56, 34, 46),
-            child: SafeArea(
-              top: false,
-              child: SizedBox(
-                width: double.infinity,
-                height: 66,
-                child: ElevatedButton(
-                  onPressed: isReady ? _goToPin : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryColor,
-                    disabledBackgroundColor: primaryColor.withValues(
-                      alpha: 0.55,
-                    ),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(34),
-                    ),
-                  ),
-                  child: const Text(
-                    'Lanjutkan',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
-                      fontFamily: 'Poppins',
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
+          _buildBottomButton(isReady),
         ],
       ),
     );
   }
 
+  Widget _buildBottomButton(bool isReady) {
+    return Container(
+      color: const Color(0xFFF9F9F9),
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          width: double.infinity,
+          height: 52,
+          child: ElevatedButton(
+            onPressed: isReady ? _goToPin : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryColor,
+              disabledBackgroundColor: const Color(0xFFC9C9C9),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(28),
+              ),
+            ),
+            child: const Text(
+              'Lanjutkan',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+                fontFamily: 'Poppins',
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildHeader() {
-    return Stack(
-      alignment: Alignment.center,
+    return Column(
       children: [
         Align(
           alignment: Alignment.centerLeft,
           child: GestureDetector(
             onTap: () => Navigator.pop(context),
             child: Container(
-              width: 76,
-              height: 76,
+              padding: const EdgeInsets.all(8),
               decoration: const BoxDecoration(
                 color: Colors.white,
                 shape: BoxShape.circle,
@@ -338,33 +459,30 @@ class _ListrikPlnPageState extends State<ListrikPlnPage> {
               child: const Icon(
                 Icons.arrow_back,
                 color: primaryColor,
-                size: 36,
+                size: 20,
               ),
             ),
           ),
         ),
-        Column(
-          children: [
-            Container(
-              width: 108,
-              height: 100,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: const Icon(Icons.flash_on, color: primaryColor, size: 42),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Listrik PLN',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 25,
-                fontWeight: FontWeight.w900,
-                fontFamily: 'Poppins',
-              ),
-            ),
-          ],
+        const SizedBox(height: 5),
+        Container(
+          width: 60,
+          height: 60,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(15),
+          ),
+          child: const Icon(Icons.flash_on, color: primaryColor, size: 30),
+        ),
+        const SizedBox(height: 10),
+        const Text(
+          'Listrik PLN',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+            fontFamily: 'Poppins',
+          ),
         ),
       ],
     );
@@ -373,11 +491,11 @@ class _ListrikPlnPageState extends State<ListrikPlnPage> {
   Widget _buildCustomerNumberCard() {
     return Container(
       width: double.infinity,
-      height: 144,
-      padding: const EdgeInsets.symmetric(horizontal: 34),
+      height: 92,
+      padding: const EdgeInsets.symmetric(horizontal: 22),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(34),
+        borderRadius: BorderRadius.circular(24),
       ),
       child: Row(
         children: [
@@ -390,7 +508,7 @@ class _ListrikPlnPageState extends State<ListrikPlnPage> {
                   'Nomor Pelanggan',
                   style: TextStyle(
                     color: Color(0xFF8E90E7),
-                    fontSize: 16,
+                    fontSize: 13,
                     fontWeight: FontWeight.w500,
                     fontFamily: 'Poppins',
                   ),
@@ -399,10 +517,13 @@ class _ListrikPlnPageState extends State<ListrikPlnPage> {
                   controller: _meterController,
                   keyboardType: TextInputType.number,
                   cursorColor: primaryColor,
-                  onChanged: (_) => setState(() {}),
+                  onChanged: (_) {
+                    setState(() {});
+                    _scheduleCustomerLookup();
+                  },
                   style: const TextStyle(
                     color: primaryColor,
-                    fontSize: 25,
+                    fontSize: 21,
                     fontWeight: FontWeight.w900,
                     fontFamily: 'Poppins',
                   ),
@@ -415,7 +536,7 @@ class _ListrikPlnPageState extends State<ListrikPlnPage> {
               ],
             ),
           ),
-          const Icon(Icons.flash_on, color: primaryColor, size: 38),
+          const Icon(Icons.flash_on, color: primaryColor, size: 32),
         ],
       ),
     );
@@ -424,18 +545,22 @@ class _ListrikPlnPageState extends State<ListrikPlnPage> {
   Widget _buildCustomerNameCard() {
     return Container(
       width: double.infinity,
-      height: 106,
-      padding: const EdgeInsets.symmetric(horizontal: 34),
+      height: 78,
+      padding: const EdgeInsets.symmetric(horizontal: 22),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(24),
       ),
       alignment: Alignment.centerLeft,
-      child: const Text(
-        'Nama Pelanggan : REZ***',
-        style: TextStyle(
+      child: Text(
+        _isLookupLoading
+            ? 'Nama Pelanggan : Memuat...'
+            : 'Nama Pelanggan : $_customerName',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
           color: primaryColor,
-          fontSize: 24,
+          fontSize: 19,
           fontWeight: FontWeight.w900,
           fontFamily: 'Poppins',
         ),
@@ -445,14 +570,13 @@ class _ListrikPlnPageState extends State<ListrikPlnPage> {
 
   Widget _buildTokenGrid() {
     return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.only(left: 30, right: 30, top: 10, bottom: 40),
       itemCount: _tokenOptions.length,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        crossAxisSpacing: 96,
-        mainAxisSpacing: 32,
-        childAspectRatio: 2.08,
+        crossAxisSpacing: 20,
+        mainAxisSpacing: 20,
+        childAspectRatio: 2.2,
       ),
       itemBuilder: (context, index) {
         final amount = _tokenOptions[index];
@@ -463,18 +587,25 @@ class _ListrikPlnPageState extends State<ListrikPlnPage> {
           child: Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(28),
+              borderRadius: BorderRadius.circular(20),
               border: Border.all(
                 color: isSelected ? const Color(0xFF2C265C) : Colors.white,
-                width: isSelected ? 4 : 0,
+                width: isSelected ? 3 : 0,
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 5,
+                  offset: const Offset(0, 3),
+                ),
+              ],
             ),
             alignment: Alignment.center,
             child: Text(
               _formatTokenLabel(amount),
               style: const TextStyle(
                 color: primaryColor,
-                fontSize: 35,
+                fontSize: 18,
                 fontWeight: FontWeight.w900,
                 fontFamily: 'Poppins',
               ),

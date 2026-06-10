@@ -16,12 +16,16 @@ import (
 )
 
 type RincianKategori struct {
+	Pemasukan         float64 `json:"pemasukan"`
+	Pengeluaran       float64 `json:"pengeluaran"`
+	TopUp             float64 `json:"top_up"`
+	TransferMasuk     float64 `json:"transfer_masuk"`
+	WishlistMasuk     float64 `json:"wishlist_masuk"`
 	Pembayaran        float64 `json:"pembayaran"`
 	PembayaranPulsa   float64 `json:"pembayaran_pulsa"`
 	PembayaranListrik float64 `json:"pembayaran_listrik"`
-	TopUp             float64 `json:"top_up"`
-	TransferMasuk     float64 `json:"transfer_masuk"`
 	TransferKeluar    float64 `json:"transfer_keluar"`
+	WishlistKeluar    float64 `json:"wishlist_keluar"`
 }
 
 type GrafikBatang struct {
@@ -107,8 +111,8 @@ func (hc *HistoryController) buildTrackingKeuangan(userID uint, period string) (
 	case "weekly":
 		startDate = now.AddDate(0, 0, -7)
 		barChart = []GrafikBatang{
-			{Label: "Sen"}, {Label: "Sel"}, {Label: "Rab"}, {Label: "Kam"},
-			{Label: "Jum"}, {Label: "Sab"}, {Label: "Min"},
+			{Label: "S"}, {Label: "S"}, {Label: "R"}, {Label: "K"},
+			{Label: "J"}, {Label: "S"}, {Label: "M"},
 		}
 	case "monthly":
 		startDate = now.AddDate(0, -1, 0)
@@ -139,32 +143,38 @@ func (hc *HistoryController) buildTrackingKeuangan(userID uint, period string) (
 		// PERBAIKAN 2: Paksa semua tipe transaksi jadi huruf besar agar aman dari typo di DB
 		trxType := strings.ToUpper(trx.TransactionType)
 
-		isPembayaran := trx.SenderID == userID && (trxType == "PULSA" || trxType == "PLN" || trxType == "PEMBAYARAN")
-		isPulsa := trx.SenderID == userID && trxType == "PULSA"
-		isListrik := trx.SenderID == userID && trxType == "PLN"
-		// PERBAIKAN 3: Longgarkan syarat Top Up agar terbaca (entah user sebagai penerima/pengirim)
-		isTopUp := trxType == "TOPUP"
-		isTransferKeluar := trx.SenderID == userID && trxType == "TRANSFER"
-		isTransferMasuk := trx.ReceiverID == userID && trxType == "TRANSFER"
+		isPemasukan := trxType == "TOPUP" ||
+			trxType == "SAVING_OUT" ||
+			(trxType == "TRANSFER" && trx.ReceiverID == userID)
+		isPengeluaran := (trx.SenderID == userID && (trxType == "PULSA" || trxType == "PLN" || trxType == "PEMBAYARAN" || trxType == "SAVING_IN")) ||
+			(trxType == "TRANSFER" && trx.SenderID == userID)
 
-		// Tambahkan ke Total jika ini adalah uang keluar (pengeluaran) atau topup
-		if isPembayaran || isTopUp || isTransferKeluar {
+		if isPemasukan {
+			pieChart.Pemasukan += trx.Amount
 			grandTotal += trx.Amount
-		}
-
-		if isPembayaran {
-			pieChart.Pembayaran += trx.Amount
-			if isPulsa {
-				pieChart.PembayaranPulsa += trx.Amount
-			} else if isListrik {
-				pieChart.PembayaranListrik += trx.Amount
+			if trxType == "TOPUP" {
+				pieChart.TopUp += trx.Amount
+			} else if trxType == "TRANSFER" {
+				pieChart.TransferMasuk += trx.Amount
+			} else if trxType == "SAVING_OUT" {
+				pieChart.WishlistMasuk += trx.Amount
 			}
-		} else if isTopUp {
-			pieChart.TopUp += trx.Amount
-		} else if isTransferKeluar {
-			pieChart.TransferKeluar += trx.Amount
-		} else if isTransferMasuk {
-			pieChart.TransferMasuk += trx.Amount
+		}
+		if isPengeluaran {
+			pieChart.Pengeluaran += trx.Amount
+			grandTotal += trx.Amount
+			if trxType == "TRANSFER" {
+				pieChart.TransferKeluar += trx.Amount
+			} else if trxType == "PULSA" || trxType == "PLN" || trxType == "PEMBAYARAN" {
+				pieChart.Pembayaran += trx.Amount
+				if trxType == "PLN" {
+					pieChart.PembayaranListrik += trx.Amount
+				} else {
+					pieChart.PembayaranPulsa += trx.Amount
+				}
+			} else if trxType == "SAVING_IN" {
+				pieChart.WishlistKeluar += trx.Amount
+			}
 		}
 
 		idx := 0
@@ -184,19 +194,30 @@ func (hc *HistoryController) buildTrackingKeuangan(userID uint, period string) (
 			idx = int(trx.CreatedAt.Month()) - 1
 		}
 
-		if isPembayaran {
-			barChart[idx].Nominal.Pembayaran += trx.Amount
-			if isPulsa {
-				barChart[idx].Nominal.PembayaranPulsa += trx.Amount
-			} else if isListrik {
-				barChart[idx].Nominal.PembayaranListrik += trx.Amount
+		if isPemasukan {
+			barChart[idx].Nominal.Pemasukan += trx.Amount
+			if trxType == "TOPUP" {
+				barChart[idx].Nominal.TopUp += trx.Amount
+			} else if trxType == "TRANSFER" {
+				barChart[idx].Nominal.TransferMasuk += trx.Amount
+			} else if trxType == "SAVING_OUT" {
+				barChart[idx].Nominal.WishlistMasuk += trx.Amount
 			}
-		} else if isTopUp {
-			barChart[idx].Nominal.TopUp += trx.Amount
-		} else if isTransferKeluar {
-			barChart[idx].Nominal.TransferKeluar += trx.Amount
-		} else if isTransferMasuk {
-			barChart[idx].Nominal.TransferMasuk += trx.Amount
+		}
+		if isPengeluaran {
+			barChart[idx].Nominal.Pengeluaran += trx.Amount
+			if trxType == "TRANSFER" {
+				barChart[idx].Nominal.TransferKeluar += trx.Amount
+			} else if trxType == "PULSA" || trxType == "PLN" || trxType == "PEMBAYARAN" {
+				barChart[idx].Nominal.Pembayaran += trx.Amount
+				if trxType == "PLN" {
+					barChart[idx].Nominal.PembayaranListrik += trx.Amount
+				} else {
+					barChart[idx].Nominal.PembayaranPulsa += trx.Amount
+				}
+			} else if trxType == "SAVING_IN" {
+				barChart[idx].Nominal.WishlistKeluar += trx.Amount
+			}
 		}
 	}
 
@@ -289,11 +310,15 @@ func (hc *HistoryController) ExportTrackingKeuanganPDF(c *gin.Context) {
 		Label string
 		Value float64
 	}{
-		{"Pulsa / Kuota", pieChart.PembayaranPulsa},
-		{"Tagihan Listrik", pieChart.PembayaranListrik},
-		{"Top Up", pieChart.TopUp},
-		{"Transfer Masuk", pieChart.TransferMasuk},
-		{"Transfer Keluar", pieChart.TransferKeluar},
+		{"Pemasukan", pieChart.Pemasukan},
+		{"- Top Up", pieChart.TopUp},
+		{"- Transfer Masuk", pieChart.TransferMasuk},
+		{"- Uang dari Wishlist", pieChart.WishlistMasuk},
+		{"Pengeluaran", pieChart.Pengeluaran},
+		{"- Pembayaran Pulsa / Kuota", pieChart.PembayaranPulsa},
+		{"- Tagihan Listrik", pieChart.PembayaranListrik},
+		{"- Transfer Keluar", pieChart.TransferKeluar},
+		{"- Saldo ke Wishlist", pieChart.WishlistKeluar},
 	}
 	for i, row := range categoryRows {
 		pdf.SetFillColor(255, 255, 255)
@@ -311,24 +336,26 @@ func (hc *HistoryController) ExportTrackingKeuanganPDF(c *gin.Context) {
 
 	pdf.SetFillColor(primaryR, primaryG, primaryB)
 	pdf.SetTextColor(255, 255, 255)
-	pdf.SetFont("Arial", "B", 9)
+	pdf.SetFont("Arial", "B", 7)
 	pdf.CellFormat(18, 9, "Label", "1", 0, "C", true, 0, "")
-	pdf.CellFormat(30, 9, "Pulsa / Kuota", "1", 0, "C", true, 0, "")
-	pdf.CellFormat(30, 9, "Tagihan Listrik", "1", 0, "C", true, 0, "")
-	pdf.CellFormat(28, 9, "Top Up", "1", 0, "C", true, 0, "")
-	pdf.CellFormat(37, 9, "Transfer Masuk", "1", 0, "C", true, 0, "")
-	pdf.CellFormat(37, 9, "Transfer Keluar", "1", 1, "C", true, 0, "")
+	pdf.CellFormat(26, 9, "Top Up", "1", 0, "C", true, 0, "")
+	pdf.CellFormat(30, 9, "Transfer In", "1", 0, "C", true, 0, "")
+	pdf.CellFormat(26, 9, "Pulsa/Kuota", "1", 0, "C", true, 0, "")
+	pdf.CellFormat(26, 9, "Listrik", "1", 0, "C", true, 0, "")
+	pdf.CellFormat(30, 9, "Transfer Out", "1", 0, "C", true, 0, "")
+	pdf.CellFormat(24, 9, "Wishlist", "1", 1, "C", true, 0, "")
 
 	pdf.SetTextColor(darkR, darkG, darkB)
-	pdf.SetFont("Arial", "", 8)
+	pdf.SetFont("Arial", "", 7)
 	for _, bar := range barChart {
 		pdf.SetFillColor(255, 255, 255)
 		pdf.CellFormat(18, 8, bar.Label, "1", 0, "C", true, 0, "")
-		pdf.CellFormat(30, 8, formatCurrency(bar.Nominal.PembayaranPulsa), "1", 0, "R", true, 0, "")
-		pdf.CellFormat(30, 8, formatCurrency(bar.Nominal.PembayaranListrik), "1", 0, "R", true, 0, "")
-		pdf.CellFormat(28, 8, formatCurrency(bar.Nominal.TopUp), "1", 0, "R", true, 0, "")
-		pdf.CellFormat(37, 8, formatCurrency(bar.Nominal.TransferMasuk), "1", 0, "R", true, 0, "")
-		pdf.CellFormat(37, 8, formatCurrency(bar.Nominal.TransferKeluar), "1", 1, "R", true, 0, "")
+		pdf.CellFormat(26, 8, formatCurrency(bar.Nominal.TopUp), "1", 0, "R", true, 0, "")
+		pdf.CellFormat(30, 8, formatCurrency(bar.Nominal.TransferMasuk), "1", 0, "R", true, 0, "")
+		pdf.CellFormat(26, 8, formatCurrency(bar.Nominal.PembayaranPulsa), "1", 0, "R", true, 0, "")
+		pdf.CellFormat(26, 8, formatCurrency(bar.Nominal.PembayaranListrik), "1", 0, "R", true, 0, "")
+		pdf.CellFormat(30, 8, formatCurrency(bar.Nominal.TransferKeluar), "1", 0, "R", true, 0, "")
+		pdf.CellFormat(24, 8, formatCurrency(bar.Nominal.WishlistKeluar+bar.Nominal.WishlistMasuk), "1", 1, "R", true, 0, "")
 	}
 	pdf.Ln(8)
 
@@ -360,17 +387,17 @@ func buildTrackingSummaryText(periodLabel string, pieChart RincianKategori, gran
 		return fmt.Sprintf("Rp %.2f", value)
 	}
 
+	totalPengeluaran := pieChart.Pengeluaran
+	totalPemasukan := pieChart.Pemasukan
 	expenseRows := []struct {
 		Label string
 		Value float64
 	}{
-		{"Pulsa / Kuota", pieChart.PembayaranPulsa},
-		{"Tagihan Listrik", pieChart.PembayaranListrik},
-		{"Transfer Keluar", pieChart.TransferKeluar},
+		{"pembayaran pulsa/kuota", pieChart.PembayaranPulsa},
+		{"tagihan listrik", pieChart.PembayaranListrik},
+		{"transfer keluar", pieChart.TransferKeluar},
+		{"saldo ke wishlist", pieChart.WishlistKeluar},
 	}
-
-	totalPengeluaran := pieChart.PembayaranPulsa + pieChart.PembayaranListrik + pieChart.TransferKeluar
-	totalPemasukan := pieChart.TopUp + pieChart.TransferMasuk
 
 	topExpenseLabel := "belum ada pengeluaran"
 	topExpenseValue := 0.0
@@ -398,12 +425,12 @@ func buildTrackingSummaryText(periodLabel string, pieChart RincianKategori, gran
 	}
 
 	return fmt.Sprintf(
-		"Pada periode %s, total pengeluaran user adalah %s. Pengeluaran terbesar berasal dari %s sebesar %s. Total pemasukan tercatat %s, sehingga pengeluaran periode ini %s pemasukan.",
+		"Pada periode %s, total pemasukan user adalah %s dan total pengeluaran user adalah %s. Pengeluaran terbesar berasal dari %s sebesar %s. Pengeluaran periode ini %s pemasukan.",
 		periodLabel,
+		formatCurrency(totalPemasukan),
 		formatCurrency(totalPengeluaran),
 		topExpenseLabel,
 		formatCurrency(topExpenseValue),
-		formatCurrency(totalPemasukan),
 		balanceText,
 	)
 }

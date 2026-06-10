@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../pembayaran/input_nominal_page.dart';
+import '../dashboard/riwayat_page.dart';
 import '../services/api_service.dart';
 
 class TransferPage extends StatefulWidget {
@@ -10,6 +11,8 @@ class TransferPage extends StatefulWidget {
 }
 
 class _TransferPageState extends State<TransferPage> {
+  static const Color primaryColor = Color(0xFF4D55CC);
+
   final TextEditingController _phoneController = TextEditingController();
   bool _isLoadingFavorites = true;
   List<dynamic> _favorites = [];
@@ -42,17 +45,6 @@ class _TransferPageState extends State<TransferPage> {
       if (res['success'] == true) _recentTransfers = res['data']['recent_contacts'] ?? [];
       _isLoadingRecent = false;
     });
-  }
-
-  Future<void> _addRecentToFavorites(String name, String phone) async {
-    final res = await ApiService.createFavorite(phone, name);
-    if (!mounted) return;
-    if (res['success']) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Berhasil disimpan ke favorit!")));
-      _fetchFavorites();
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res['message'] ?? "Gagal")));
-    }
   }
 
   // --- FUNGSI POP-UP TAMBAH KONTAK FAVORIT ---
@@ -104,7 +96,7 @@ class _TransferPageState extends State<TransferPage> {
                         style: const TextStyle(color: primaryColor, fontFamily: 'Poppins', fontWeight: FontWeight.w700),
                         decoration: InputDecoration(
                           labelText: 'Nama Kontak',
-                          labelStyle: TextStyle(color: primaryColor.withOpacity(0.5), fontSize: 11, fontFamily: 'Poppins', fontWeight: FontWeight.w600),
+                          labelStyle: TextStyle(color: primaryColor.withValues(alpha: 0.5), fontSize: 11, fontFamily: 'Poppins', fontWeight: FontWeight.w600),
                           border: InputBorder.none,
                           floatingLabelBehavior: FloatingLabelBehavior.always,
                         ),
@@ -125,7 +117,7 @@ class _TransferPageState extends State<TransferPage> {
                         style: const TextStyle(color: primaryColor, fontFamily: 'Poppins', fontWeight: FontWeight.w700),
                         decoration: InputDecoration(
                           labelText: 'Nomor HP',
-                          labelStyle: TextStyle(color: primaryColor.withOpacity(0.5), fontSize: 11, fontFamily: 'Poppins', fontWeight: FontWeight.w600),
+                          labelStyle: TextStyle(color: primaryColor.withValues(alpha: 0.5), fontSize: 11, fontFamily: 'Poppins', fontWeight: FontWeight.w600),
                           border: InputBorder.none,
                           floatingLabelBehavior: FloatingLabelBehavior.always,
                         ),
@@ -151,15 +143,15 @@ class _TransferPageState extends State<TransferPage> {
                                   phoneController.text.trim(),
                                   namaController.text.trim(),
                                 );
-                                if (!mounted) return;
+                                if (!mounted || !context.mounted) return;
                                 Navigator.pop(context);
                                 if (res['success'] == true) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
+                                  ScaffoldMessenger.of(this.context).showSnackBar(
                                     const SnackBar(content: Text("Kontak berhasil ditambahkan!"), duration: Duration(seconds: 1)),
                                   );
                                   _fetchFavorites();
                                 } else {
-                                  ScaffoldMessenger.of(context).showSnackBar(
+                                  ScaffoldMessenger.of(this.context).showSnackBar(
                                     SnackBar(content: Text(res['message'] ?? "Gagal menambahkan kontak")),
                                   );
                                 }
@@ -249,177 +241,342 @@ class _TransferPageState extends State<TransferPage> {
     const Color primaryColor = Color(0xFF4D55CC);
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: Stack(
+      backgroundColor: const Color(0xFFF9F9F9),
+      body: Column(
         children: [
-          Container(
-            height: MediaQuery.of(context).size.height * 0.5,
-            decoration: const BoxDecoration(
-              color: primaryColor,
-              borderRadius: BorderRadius.only(bottomLeft: Radius.circular(40), bottomRight: Radius.circular(40)),
-            ),
-          ),
-          SafeArea(
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
+          SizedBox(
+            height: MediaQuery.of(context).size.height * 0.74,
+            child: Container(
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                color: primaryColor,
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(72),
+                  bottomRight: Radius.circular(72),
+                ),
+              ),
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 22),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildAppBar(),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 42),
                       _buildSearchBar(),
-                      const SizedBox(height: 20),
-                      const Text("Rekening Favorit", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 15),
+                      const SizedBox(height: 28),
+                      const Text(
+                        "Rekening Favorit",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 16,
+                          fontFamily: 'Poppins',
+                        ),
+                      ),
+                      const SizedBox(height: 22),
                       _buildFavoritesList(),
+                      const SizedBox(height: 24),
+                      const Text(
+                        "Daftar Transfer terakhir",
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontFamily: 'Poppins',
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Expanded(child: _buildRecentList()),
                     ],
                   ),
                 ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text("Daftar Transfer terakhir", style: TextStyle(fontWeight: FontWeight.bold, color: primaryColor)),
-                        const SizedBox(height: 15),
-                        Expanded(child: _buildRecentList()),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
+          _buildBottomButton(primaryColor),
         ],
       ),
-      bottomNavigationBar: _buildBottomButton(primaryColor),
     );
   }
 
   Widget _buildAppBar() => Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
     children: [
-      GestureDetector(onTap: () => Navigator.pop(context), child: const Icon(Icons.arrow_back, color: Colors.white)),
-      const Text("Transfer", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-      const Icon(Icons.history, color: Colors.white),
+      GestureDetector(
+        onTap: () => Navigator.pop(context),
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.arrow_back, color: primaryColor, size: 24),
+        ),
+      ),
+      const SizedBox(width: 20),
+      const Expanded(
+        child: Text(
+          "Transfer",
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 24,
+            fontWeight: FontWeight.w900,
+            fontFamily: 'Poppins',
+          ),
+        ),
+      ),
+      GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const RiwayatPage()),
+          );
+        },
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.history, color: primaryColor, size: 24),
+        ),
+      ),
     ],
   );
 
   Widget _buildSearchBar() => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 20),
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15)),
-    child: TextField(
-      controller: _phoneController,
-      keyboardType: TextInputType.phone,
-      decoration: const InputDecoration(hintText: "Masukkan nomor HP tujuan", border: InputBorder.none, suffixIcon: Icon(Icons.search, color: Color(0xFF4D55CC))),
+    height: 64,
+    padding: const EdgeInsets.only(left: 20, right: 10),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+    ),
+    child: Center(
+      child: TextField(
+        controller: _phoneController,
+        keyboardType: TextInputType.phone,
+        style: const TextStyle(
+          color: primaryColor,
+          fontWeight: FontWeight.w800,
+          fontFamily: 'Poppins',
+        ),
+        textAlignVertical: TextAlignVertical.center,
+        decoration: InputDecoration(
+          hintText: "Cari nomor akun tujuan",
+          hintStyle: const TextStyle(
+            color: Color(0xFF9B9BE7),
+            fontWeight: FontWeight.w700,
+            fontFamily: 'Poppins',
+          ),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.only(top: 6, bottom: 9),
+          suffixIcon: const Icon(Icons.search, color: primaryColor, size: 30),
+        ),
+      ),
     ),
   );
 
-  Widget _buildFavoritesList() => SizedBox(
-    height: 100,
-    child: ListView.builder(
-      scrollDirection: Axis.horizontal,
-      itemCount: _favorites.length + 1,
-      itemBuilder: (ctx, i) {
-        if (i == _favorites.length) {
-          return _buildTambahFavItem();
-        }
-        // Panggil pop-up saat rekening ditekan
-        return _buildFavItem(_favorites[i]['label'] ?? 'User', Icons.person, () => _showConfirmationDialog(_favorites[i]));
-      },
-    ),
-  );
+  Widget _buildFavoritesList() {
+    if (_isLoadingFavorites) {
+      return const SizedBox(
+        height: 110,
+        child: Center(
+          child: CircularProgressIndicator(color: Colors.white),
+        ),
+      );
+    }
 
-  // Tombol Tambah Rekening Favorit (sesuai desain)
-  Widget _buildTambahFavItem() => Container(
-    margin: const EdgeInsets.only(right: 16),
+    return SizedBox(
+      height: 120,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        itemCount: _favorites.length + 1,
+        separatorBuilder: (context, index) => const SizedBox(width: 14),
+        itemBuilder: (ctx, i) {
+          if (i == _favorites.length) {
+            return _buildTambahFavItem();
+          }
+          return _buildFavItem(
+            _favorites[i]['label'] ?? 'User',
+            Icons.person,
+            () => _showConfirmationDialog(_favorites[i]),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildTambahFavItem() => SizedBox(
+    width: 110,
     child: GestureDetector(
       onTap: () => _showTambahKontakBottomSheet(),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 60,
-            height: 60,
+            width: 66,
+            height: 66,
             decoration: BoxDecoration(
-              color: Colors.transparent,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white, width: 1.5),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
             ),
-            child: const Icon(Icons.star_border_rounded, color: Colors.white, size: 26),
+            child: const Icon(Icons.star_border_rounded, color: primaryColor, size: 24),
           ),
-          const SizedBox(height: 8),
-          const SizedBox(
-            width: 65,
-            child: Text(
-              'Tambah rekening favorit',
-              style: TextStyle(color: Colors.white, fontSize: 10),
-              textAlign: TextAlign.center,
-              maxLines: 2,
+          const SizedBox(height: 10),
+          const Text(
+            'Tambah rekening\nfavorit',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              height: 1.25,
+              fontWeight: FontWeight.w900,
+              fontFamily: 'Poppins',
             ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
           ),
         ],
       ),
     ),
   );
 
-  Widget _buildFavItem(String label, IconData icon, VoidCallback onTap) => Container(
-    margin: const EdgeInsets.only(right: 16),
+  Widget _buildFavItem(String label, IconData icon, VoidCallback onTap) => SizedBox(
+    width: 110,
     child: GestureDetector(
       onTap: onTap,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 60,
-            height: 60,
+            width: 66,
+            height: 66,
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(16),
             ),
-            child: const Icon(Icons.person, color: Color(0xFF4D55CC), size: 28),
+            child: Icon(icon, color: primaryColor, size: 24),
           ),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: 65,
-            child: Text(
-              label,
-              style: const TextStyle(color: Colors.white, fontSize: 10),
-              textAlign: TextAlign.center,
-              maxLines: 2,
+          const SizedBox(height: 10),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              height: 1.25,
+              fontWeight: FontWeight.w900,
+              fontFamily: 'Poppins',
             ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
     ),
   );
 
-  Widget _buildRecentList() => ListView.builder(
-    itemCount: _recentTransfers.length,
-    itemBuilder: (ctx, i) => Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.grey.shade200)),
-      child: ListTile(
-        leading: const Icon(Icons.person, color: Color(0xFF4D55CC)),
-        title: Text(_recentTransfers[i]['nama'], style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text(_recentTransfers[i]['phone_number']),
-        trailing: IconButton(icon: const Icon(Icons.bookmark_border, color: Color(0xFF4D55CC)), onPressed: () => _addRecentToFavorites(_recentTransfers[i]['nama'], _recentTransfers[i]['phone_number'])),
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => InputNominalPage(receiverName: _recentTransfers[i]['nama'], receiverPhone: _recentTransfers[i]['phone_number'], transactionType: 'TRANSFER'))),
-      ),
-    ),
-  );
+  Widget _buildRecentList() {
+    if (_isLoadingRecent) {
+      return const Center(
+        child: CircularProgressIndicator(color: Colors.white),
+      );
+    }
 
-  Widget _buildBottomButton(Color color) => Padding(
-    padding: const EdgeInsets.all(24),
-    child: ElevatedButton(
-      onPressed: () => _phoneController.text.isNotEmpty ? Navigator.push(context, MaterialPageRoute(builder: (_) => InputNominalPage(receiverName: "Nomor Baru", receiverPhone: _phoneController.text.trim(), transactionType: 'TRANSFER'))) : null,
-      style: ElevatedButton.styleFrom(backgroundColor: color, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25))),
-      child: const Text("Lanjutkan", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-    ),
-  );
+    return ListView.builder(
+      padding: EdgeInsets.zero,
+      itemCount: _recentTransfers.length,
+      itemBuilder: (ctx, i) {
+        final item = _recentTransfers[i];
+        return GestureDetector(
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => InputNominalPage(
+                receiverName: item['nama'],
+                receiverPhone: item['phone_number'],
+                transactionType: 'TRANSFER',
+              ),
+            ),
+          ),
+          child: Container(
+            height: 62,
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.person, color: primaryColor, size: 30),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Text(
+                    item['nama'] ?? 'User',
+                    style: const TextStyle(
+                      color: primaryColor,
+                      fontWeight: FontWeight.w900,
+                    fontSize: 15,
+                      fontFamily: 'Poppins',
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildBottomButton(Color color) => Container(
+        color: const Color(0xFFF9F9F9),
+        padding: const EdgeInsets.fromLTRB(20, 22, 20, 32),
+        child: SafeArea(
+          top: false,
+          child: SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: ElevatedButton(
+              onPressed: () => _phoneController.text.isNotEmpty
+                  ? Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => InputNominalPage(
+                          receiverName: "Nomor Baru",
+                          receiverPhone: _phoneController.text.trim(),
+                          transactionType: 'TRANSFER',
+                        ),
+                      ),
+                    )
+                  : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: color,
+                disabledBackgroundColor: const Color(0xFFC9C9C9),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28),
+                ),
+              ),
+              child: const Text(
+                "Lanjutkan",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  fontFamily: 'Poppins',
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
 
   @override
   void dispose() {

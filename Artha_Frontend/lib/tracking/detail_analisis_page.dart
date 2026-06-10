@@ -41,18 +41,29 @@ class _DetailAnalisisPageState extends State<DetailAnalisisPage> {
       final res = await ApiService.getTrackingKeuangan(_selectedPeriod);
       if (mounted && res['success'] == true && res['data'] != null) {
         final pie = res['data']['pie_chart'] ?? {};
+        final topUp = _valueFromMap(pie, 'top_up');
+        final transferMasuk = _valueFromMap(pie, 'transfer_masuk');
+        final wishlistMasuk = _valueFromMap(pie, 'wishlist_masuk');
+        final pembayaranPulsa = _valueFromMap(pie, 'pembayaran_pulsa') > 0
+            ? _valueFromMap(pie, 'pembayaran_pulsa')
+            : _valueFromMap(pie, 'pembayaran');
+        final pembayaranListrik = _valueFromMap(pie, 'pembayaran_listrik');
+        final transferKeluar = _valueFromMap(pie, 'transfer_keluar');
+        final wishlistKeluar = _valueFromMap(pie, 'wishlist_keluar');
+        final pemasukan = _valueFromMap(pie, 'pemasukan') > 0
+            ? _valueFromMap(pie, 'pemasukan')
+            : topUp + transferMasuk + wishlistMasuk;
+        final pengeluaran = _valueFromMap(pie, 'pengeluaran') > 0
+            ? _valueFromMap(pie, 'pengeluaran')
+            : pembayaranPulsa +
+                  pembayaranListrik +
+                  transferKeluar +
+                  wishlistKeluar;
         setState(() {
           _data = res['data'];
           _chartData = [
-            ChartData(
-              max(0.0, (pie['pembayaran'] ?? 0).toDouble()),
-              darkPurple,
-            ),
-            ChartData(max(0.0, (pie['top_up'] ?? 0).toDouble()), primaryColor),
-            ChartData(
-              max(0.0, (pie['transfer_keluar'] ?? 0).toDouble()),
-              lightPurple,
-            ),
+            ChartData(pemasukan, lightPurple),
+            ChartData(pengeluaran, darkPurple),
           ];
         });
       }
@@ -78,15 +89,40 @@ class _DetailAnalisisPageState extends State<DetailAnalisisPage> {
     }
   }
 
-  double get _pembayaran => _pieValue('pembayaran');
+  double get _pemasukan {
+    final direct = _pieValue('pemasukan');
+    return direct > 0 ? direct : _topUp + _transferMasuk + _wishlistMasuk;
+  }
+
+  double get _pengeluaran {
+    final direct = _pieValue('pengeluaran');
+    return direct > 0
+        ? direct
+        : _pembayaranPulsa +
+              _pembayaranListrik +
+              _transferKeluar +
+              _wishlistKeluar;
+  }
+
+  double get _total => _pemasukan + _pengeluaran;
   double get _topUp => _pieValue('top_up');
-  double get _transfer => _pieValue('transfer_keluar');
-  double get _total => _pembayaran + _topUp + _transfer;
+  double get _transferMasuk => _pieValue('transfer_masuk');
+  double get _wishlistMasuk => _pieValue('wishlist_masuk');
+  double get _pembayaranPulsa => _pieValue('pembayaran_pulsa') > 0
+      ? _pieValue('pembayaran_pulsa')
+      : _pieValue('pembayaran');
+  double get _pembayaranListrik => _pieValue('pembayaran_listrik');
+  double get _transferKeluar => _pieValue('transfer_keluar');
+  double get _wishlistKeluar => _pieValue('wishlist_keluar');
 
   double _pieValue(String key) {
     final pie = _data?['pie_chart'];
-    if (pie is! Map) return 0;
-    final value = pie[key];
+    return _valueFromMap(pie, key);
+  }
+
+  double _valueFromMap(dynamic map, String key) {
+    if (map is! Map) return 0;
+    final value = map[key];
     return value is num ? max(0.0, value.toDouble()) : 0;
   }
 
@@ -248,7 +284,7 @@ class _DetailAnalisisPageState extends State<DetailAnalisisPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                'Summary Pengeluaran',
+                'Summary Keuangan',
                 style: TextStyle(
                   color: Colors.white,
                   fontFamily: 'Poppins',
@@ -336,43 +372,89 @@ class _DetailAnalisisPageState extends State<DetailAnalisisPage> {
             ),
           ),
           const SizedBox(height: 16),
-          _buildSummaryRow('Pembayaran', _pembayaran, darkPurple),
-          _buildSummaryRow('Top up', _topUp, primaryColor),
-          _buildSummaryRow('Transfer keluar', _transfer, lightPurple),
+          _buildSummaryRow('Pemasukan', _pemasukan, lightPurple),
+          _buildSummaryRow('Top Up', _topUp, lightPurple, indent: true),
+          _buildSummaryRow(
+            'Transfer Masuk',
+            _transferMasuk,
+            lightPurple,
+            indent: true,
+          ),
+          _buildSummaryRow(
+            'Dari Wishlist',
+            _wishlistMasuk,
+            lightPurple,
+            indent: true,
+          ),
+          const Divider(height: 26, color: Color(0xFFE5E5F8)),
+          _buildSummaryRow('Pengeluaran', _pengeluaran, darkPurple),
+          _buildSummaryRow(
+            'Pulsa / Kuota',
+            _pembayaranPulsa,
+            darkPurple,
+            indent: true,
+          ),
+          _buildSummaryRow(
+            'Tagihan Listrik',
+            _pembayaranListrik,
+            darkPurple,
+            indent: true,
+          ),
+          _buildSummaryRow(
+            'Transfer Keluar',
+            _transferKeluar,
+            darkPurple,
+            indent: true,
+          ),
+          _buildSummaryRow(
+            'Saldo ke Wishlist',
+            _wishlistKeluar,
+            darkPurple,
+            indent: true,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildSummaryRow(String label, double value, Color color) {
+  Widget _buildSummaryRow(
+    String label,
+    double value,
+    Color color, {
+    bool indent = false,
+  }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: EdgeInsets.only(
+        left: indent ? 24 : 0,
+        top: indent ? 7 : 10,
+        bottom: indent ? 7 : 10,
+      ),
       child: Row(
         children: [
           Container(
-            width: 14,
-            height: 14,
+            width: indent ? 10 : 14,
+            height: indent ? 10 : 14,
             decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 color: primaryColor,
                 fontFamily: 'Poppins',
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
+                fontSize: indent ? 13 : 15,
+                fontWeight: indent ? FontWeight.w600 : FontWeight.w800,
               ),
             ),
           ),
           Text(
             'Rp ${_formatRupiah(value)}',
-            style: const TextStyle(
+            style: TextStyle(
               color: primaryColor,
               fontFamily: 'Poppins',
-              fontSize: 15,
-              fontWeight: FontWeight.w900,
+              fontSize: indent ? 13 : 15,
+              fontWeight: indent ? FontWeight.w700 : FontWeight.w900,
             ),
           ),
         ],
