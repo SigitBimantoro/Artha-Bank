@@ -12,53 +12,56 @@ class _LandingPageState extends State<LandingPage> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
 
+  final List<String> _landingImages = [
+    'assets/koin.png',
+    'assets/savings.png',
+    'assets/analisis.png',
+  ];
+
   @override
   void dispose() {
     _pageController.dispose();
     super.dispose();
   }
 
-  // Fungsi untuk berpindah ke slide selanjutnya
   void _nextPage() {
     if (_currentPage < 2) {
-      // Pindah slide secara INSTAN tanpa animasi geser
       _pageController.jumpToPage(_currentPage + 1);
     } else {
-      // Transisi dari BAWAH ke ATAS dengan ujung melengkung yang mulus
       Navigator.pushReplacement(
         context,
         PageRouteBuilder(
-          // Durasi dipanjangkan sedikit agar efek "smooth" / perlambatannya lebih terasa
           transitionDuration: const Duration(milliseconds: 800),
           pageBuilder: (context, animation, secondaryAnimation) =>
               const WelcomePage(),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            // 1. Setup Animasi Slide (Naik dari bawah)
             const begin = Offset(0.0, 1.0);
             const end = Offset.zero;
-            // Gunakan curve ini untuk efek awal cepat, tapi sangat mulus & pelan saat mau berhenti
             const curve = Curves.fastLinearToSlowEaseIn;
 
-            var slideTween = Tween(
+            final slideTween = Tween(
               begin: begin,
               end: end,
             ).chain(CurveTween(curve: curve));
-            var offsetAnimation = animation.drive(slideTween);
 
-            // 2. Setup Animasi Lengkungan (Border Radius dari 40 ke 0)
-            var radiusAnimation = Tween<double>(
+            final offsetAnimation = animation.drive(slideTween);
+
+            final radiusAnimation = Tween<double>(
               begin: 40.0,
               end: 0.0,
-            ).animate(CurvedAnimation(parent: animation, curve: curve));
+            ).animate(
+              CurvedAnimation(
+                parent: animation,
+                curve: curve,
+              ),
+            );
 
-            // 3. Gabungkan transisi geser dengan perubahan bentuk sudut
             return SlideTransition(
               position: offsetAnimation,
               child: AnimatedBuilder(
                 animation: animation,
                 builder: (context, childWidget) {
                   return ClipRRect(
-                    // Ujung kiri atas dan kanan atas melengkung lalu perlahan jadi kotak
                     borderRadius: BorderRadius.vertical(
                       top: Radius.circular(radiusAnimation.value),
                     ),
@@ -80,7 +83,6 @@ class _LandingPageState extends State<LandingPage> {
       backgroundColor: const Color(0xFFFAFAFA),
       body: Stack(
         children: [
-          // PAGE VIEW UNTUK 3 SLIDE
           PageView(
             controller: _pageController,
             physics: const NeverScrollableScrollPhysics(),
@@ -90,8 +92,8 @@ class _LandingPageState extends State<LandingPage> {
               });
             },
             children: [
-              // Slide 1
               _buildSlide(
+                imagePath: _landingImages[0],
                 title: 'Kendali Penuh atas\nSetiap Rupiah!',
                 descPrefix:
                     'Pantau seluruh pengeluaran Anda secara otomatis dan rapi. ',
@@ -99,16 +101,16 @@ class _LandingPageState extends State<LandingPage> {
                 descSuffix:
                     ' mengelompokkan transaksi Anda ke dalam kategori yang jelas, sehingga Anda tahu persis ke mana uang Anda pergi.',
               ),
-              // Slide 2
               _buildSlide(
+                imagePath: _landingImages[1],
                 title: 'Wujudkan Impian,\nLangkah demi Langkah.',
                 descPrefix: 'Dengan fitur ',
                 descBold: 'Wishlist',
                 descSuffix:
                     ', Anda dapat menjadikan barang impian atau rencana liburan menjadi nyata. Wishlist memungkinkan Anda menyisihkan dana khusus untuk mencapai tujuan Anda.',
               ),
-              // Slide 3
               _buildSlide(
+                imagePath: _landingImages[2],
                 title: 'Belanja Bijak,\nTabungan Aman.',
                 descPrefix:
                     'Atur batas belanja harian Anda untuk menjaga arus kas tetap sehat. Artha akan memberikan ',
@@ -119,7 +121,6 @@ class _LandingPageState extends State<LandingPage> {
             ],
           ),
 
-          // DOTS INDICATOR
           Positioned(
             top: MediaQuery.of(context).padding.top + 50,
             left: 0,
@@ -137,7 +138,6 @@ class _LandingPageState extends State<LandingPage> {
     );
   }
 
-  // Widget Indikator Titik (Dots)
   Widget _buildDot({required bool isActive}) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
@@ -151,8 +151,8 @@ class _LandingPageState extends State<LandingPage> {
     );
   }
 
-  // Komponen pembangun untuk Slide 1, 2, dan 3
   Widget _buildSlide({
+    required String imagePath,
     required String title,
     required String descPrefix,
     required String descBold,
@@ -160,7 +160,29 @@ class _LandingPageState extends State<LandingPage> {
   }) {
     return Column(
       children: [
-        const Expanded(flex: 1, child: SizedBox()),
+        Expanded(
+          flex: 1,
+          child: SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.only(
+                top: 95,
+                left: 28,
+                right: 28,
+                bottom: 20,
+              ),
+              child: Center(
+                child: Image.asset(
+                  imagePath,
+                  width: double.infinity,
+                  height: 300,
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+          ),
+        ),
+
         Expanded(
           flex: 1,
           child: Container(
@@ -187,6 +209,7 @@ class _LandingPageState extends State<LandingPage> {
                     color: Colors.white,
                     fontSize: 24,
                     fontWeight: FontWeight.w900,
+                    fontFamily: 'Poppins',
                     height: 1.3,
                   ),
                 ),
@@ -204,7 +227,9 @@ class _LandingPageState extends State<LandingPage> {
                       TextSpan(text: descPrefix),
                       TextSpan(
                         text: descBold,
-                        style: const TextStyle(fontWeight: FontWeight.w700),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       TextSpan(text: descSuffix),
                     ],
