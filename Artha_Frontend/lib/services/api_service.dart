@@ -355,14 +355,11 @@ class ApiService {
   ) async {
     try {
       final headers = await _getHeaders(pin: pin);
-      print('[DEBUG] Transfer headers: $headers');
-      print('[DEBUG] Transfer pin length: ${pin.length}');
       final body = jsonEncode({
         "receiver_phone": receiverPhone,
         "amount": amount,
         "notes": notes,
       });
-      print('[DEBUG] Transfer request body: $body');
       final response = await http.post(
         Uri.parse('$baseUrl/transfer'),
         headers: headers,
@@ -370,8 +367,6 @@ class ApiService {
       );
       return _processResponse(response);
     } catch (e) {
-      print('[DEBUG] Transfer error: $e');
-      print('[DEBUG] Error type: ${e.runtimeType}');
       return {'success': false, 'message': 'Network error: ${e.toString()}'};
     }
   }
@@ -405,6 +400,30 @@ class ApiService {
       final body = jsonEncode({"meter_number": meter, "amount": amount});
       final response = await http.post(
         Uri.parse('$baseUrl/payment/pln'),
+        headers: headers,
+        body: body,
+      );
+      return _processResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  static Future<Map<String, dynamic>> bayarQris(
+    String merchantName,
+    double amount,
+    String pin, {
+    String payload = '',
+  }) async {
+    try {
+      final headers = await _getHeaders(pin: pin);
+      final body = jsonEncode({
+        "merchant_name": merchantName,
+        "amount": amount,
+        "payload": payload,
+      });
+      final response = await http.post(
+        Uri.parse('$baseUrl/payment/qris'),
         headers: headers,
         body: body,
       );
@@ -658,8 +677,6 @@ class ApiService {
   // ======================================================================
   static Map<String, dynamic> _processResponse(http.Response response) {
     try {
-      print('[DEBUG] Response status code: ${response.statusCode}');
-      print('[DEBUG] Response body: ${response.body}');
       final decoded = jsonDecode(response.body);
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return {'success': true, 'data': decoded};
@@ -670,7 +687,6 @@ class ApiService {
         };
       }
     } catch (e) {
-      print('[DEBUG] Response processing error: $e');
       return {
         'success': false,
         'message': response.body.isNotEmpty

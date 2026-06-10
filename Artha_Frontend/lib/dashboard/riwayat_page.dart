@@ -57,7 +57,7 @@ class _RiwayatPageState extends State<RiwayatPage> {
         case 'Top Up':
           return type == 'TOPUP';
         case 'Pembayaran':
-          return type == 'PULSA' || type == 'PLN';
+          return type == 'PULSA' || type == 'PLN' || type == 'QRIS';
         case 'Isi Saldo':
           return type == 'TRANSFER' && mutasi == 'MASUK';
         case 'Wishlist':
@@ -441,9 +441,13 @@ class _TransactionView {
       icon = Icons.arrow_downward;
       amountColor = green;
       amountText = '+Rp ${RiwayatPageStateAccess.rupiah(amount)}';
-    } else if (type == 'PULSA' || type == 'PLN') {
+    } else if (type == 'PULSA' || type == 'PLN' || type == 'QRIS') {
       title = 'Pembayaran';
-      subtitle = type == 'PLN' ? 'Listrik PLN' : 'Pulsa dan Data';
+      subtitle = type == 'PLN'
+          ? 'Listrik PLN'
+          : type == 'QRIS'
+          ? 'QRIS'
+          : 'Pulsa dan Data';
       iconColor = red;
       icon = Icons.arrow_upward;
       amountColor = red;

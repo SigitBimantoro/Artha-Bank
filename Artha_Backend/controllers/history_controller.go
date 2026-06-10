@@ -71,7 +71,7 @@ func (hc *HistoryController) GetRiwayatTransaksi(c *gin.Context) {
 		tipeMutasi := "KELUAR"
 		if trx.TransactionType == "TOPUP" || trx.TransactionType == "SAVING_OUT" {
 			tipeMutasi = "MASUK"
-		} else if trx.TransactionType == "PULSA" || trx.TransactionType == "PLN" || trx.TransactionType == "SAVING_IN" {
+		} else if trx.TransactionType == "PULSA" || trx.TransactionType == "PLN" || trx.TransactionType == "QRIS" || trx.TransactionType == "SAVING_IN" {
 			tipeMutasi = "KELUAR"
 		} else if trx.ReceiverID == userID {
 			tipeMutasi = "MASUK" // Jika dia penerimanya, berarti uang masuk
@@ -146,7 +146,7 @@ func (hc *HistoryController) buildTrackingKeuangan(userID uint, period string) (
 		isPemasukan := trxType == "TOPUP" ||
 			trxType == "SAVING_OUT" ||
 			(trxType == "TRANSFER" && trx.ReceiverID == userID)
-		isPengeluaran := (trx.SenderID == userID && (trxType == "PULSA" || trxType == "PLN" || trxType == "PEMBAYARAN" || trxType == "SAVING_IN")) ||
+		isPengeluaran := (trx.SenderID == userID && (trxType == "PULSA" || trxType == "PLN" || trxType == "QRIS" || trxType == "PEMBAYARAN" || trxType == "SAVING_IN")) ||
 			(trxType == "TRANSFER" && trx.SenderID == userID)
 
 		if isPemasukan {
@@ -165,7 +165,7 @@ func (hc *HistoryController) buildTrackingKeuangan(userID uint, period string) (
 			grandTotal += trx.Amount
 			if trxType == "TRANSFER" {
 				pieChart.TransferKeluar += trx.Amount
-			} else if trxType == "PULSA" || trxType == "PLN" || trxType == "PEMBAYARAN" {
+			} else if trxType == "PULSA" || trxType == "PLN" || trxType == "QRIS" || trxType == "PEMBAYARAN" {
 				pieChart.Pembayaran += trx.Amount
 				if trxType == "PLN" {
 					pieChart.PembayaranListrik += trx.Amount
@@ -208,7 +208,7 @@ func (hc *HistoryController) buildTrackingKeuangan(userID uint, period string) (
 			barChart[idx].Nominal.Pengeluaran += trx.Amount
 			if trxType == "TRANSFER" {
 				barChart[idx].Nominal.TransferKeluar += trx.Amount
-			} else if trxType == "PULSA" || trxType == "PLN" || trxType == "PEMBAYARAN" {
+			} else if trxType == "PULSA" || trxType == "PLN" || trxType == "QRIS" || trxType == "PEMBAYARAN" {
 				barChart[idx].Nominal.Pembayaran += trx.Amount
 				if trxType == "PLN" {
 					barChart[idx].Nominal.PembayaranListrik += trx.Amount

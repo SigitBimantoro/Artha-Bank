@@ -77,6 +77,8 @@ class _StrukPageState extends State<StrukPage> {
         return 'Pulsa berhasil!';
       case 'PLN':
         return 'Token Listrik berhasil!';
+      case 'QRIS':
+        return 'Pembayaran berhasil!';
       default:
         return 'Transaksi berhasil!';
     }
@@ -98,6 +100,8 @@ class _StrukPageState extends State<StrukPage> {
         return 'Beli Pulsa / Kuota';
       case 'PLN':
         return 'Tagihan Listrik';
+      case 'QRIS':
+        return 'Pembayaran QRIS';
       default:
         return 'Top Up Saldo';
     }
@@ -125,6 +129,15 @@ class _StrukPageState extends State<StrukPage> {
         'Jenis Transaksi :': 'Tagihan Listrik',
         'Nomor Meter :': widget.tokenListrik ?? widget.target,
         'Nominal :': _formatCurrency(widget.amount),
+        'No Transaksi :': widget.idTransaksi,
+      };
+    }
+    if (widget.type == 'QRIS') {
+      return {
+        'Pembayaran ke :': widget.target,
+        'Sumber Dana :': 'Saldo Artha',
+        'Metode Pembayaran :': 'QRIS Artha',
+        'Nominal Transaksi :': _formatCurrency(widget.amount),
         'No Transaksi :': widget.idTransaksi,
       };
     }
