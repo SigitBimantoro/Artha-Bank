@@ -454,10 +454,91 @@ class _WishlistDetailPageState extends State<WishlistDetailPage> {
     if (mounted) setState(() => _isProcessing = false);
   }
 
-  void _showUnavailableMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: primaryColor),
+  Future<void> _confirmDeleteWishlist() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          title: const Text(
+            'Hapus Wishlist?',
+            style: TextStyle(
+              color: primaryColor,
+              fontWeight: FontWeight.w900,
+              fontFamily: 'Poppins',
+            ),
+          ),
+          content: const Text(
+            'Saldo yang sudah terkumpul akan dikembalikan ke dompet utama.',
+            style: TextStyle(fontFamily: 'Poppins'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text(
+                'Batal',
+                style: TextStyle(
+                  color: primaryColor,
+                  fontWeight: FontWeight.w800,
+                  fontFamily: 'Poppins',
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFE92227),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+              child: const Text(
+                'Hapus',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  fontFamily: 'Poppins',
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
+
+    if (confirmed == true) {
+      await _deleteWishlist();
+    }
+  }
+
+  Future<void> _deleteWishlist() async {
+    setState(() => _isProcessing = true);
+    final res = await ApiService.deleteSaving(_item['saving_id']);
+
+    if (!mounted) return;
+
+    if (res['success'] == true) {
+      widget.onChanged?.call();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Wishlist berhasil dihapus'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      Navigator.pop(context);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(res['message'] ?? 'Gagal menghapus wishlist'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+
+    if (mounted) setState(() => _isProcessing = false);
   }
 
   Widget _buildHeroCard() {
@@ -920,9 +1001,7 @@ class _WishlistDetailPageState extends State<WishlistDetailPage> {
               child: SizedBox(
                 height: 62,
                 child: ElevatedButton(
-                  onPressed: () => _showUnavailableMessage(
-                    'Endpoint hapus wishlist belum tersedia.',
-                  ),
+                  onPressed: _isProcessing ? null : _confirmDeleteWishlist,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFE92227),
                     elevation: 0,

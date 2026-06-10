@@ -4,8 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   // Gunakan 10.0.2.2 untuk emulator Android, atau IP fisik jika pakai HP
-  static const String serverUrl = 'http://192.168.18.79:8080';
-  static const String baseUrl = 'http://192.168.18.79:8080/api';
+  static const String serverUrl = 'http://10.27.250.4:8080';
+  static const String baseUrl = 'http://10.27.250.4:8080/api';
 
   static String resolveMediaUrl(String? path) {
     if (path == null || path.isEmpty) return '';
@@ -569,6 +569,19 @@ class ApiService {
         Uri.parse('$baseUrl/savings/$id/withdraw'),
         headers: headers,
         body: body,
+      );
+      return _processResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  static Future<Map<String, dynamic>> deleteSaving(int id) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.delete(
+        Uri.parse('$baseUrl/savings/$id'),
+        headers: headers,
       );
       return _processResponse(response);
     } catch (e) {

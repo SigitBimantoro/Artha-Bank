@@ -1,12 +1,12 @@
-import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:open_file/open_file.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../services/api_service.dart';
 import '../widgets/chart_helper.dart';
+import 'pdf_downloader_stub.dart'
+    if (dart.library.html) 'pdf_downloader_web.dart'
+    if (dart.library.io) 'pdf_downloader_io.dart';
 
 class DetailAnalisisPage extends StatefulWidget {
   final String period;
@@ -67,10 +67,7 @@ class _DetailAnalisisPageState extends State<DetailAnalisisPage> {
     setState(() => _isDownloading = true);
     try {
       final bytes = await ApiService.downloadPDFReport(_selectedPeriod);
-      final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/laporan_$_selectedPeriod.pdf');
-      await file.writeAsBytes(bytes);
-      await OpenFile.open(file.path);
+      await savePdfFile(bytes, 'laporan_$_selectedPeriod.pdf');
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(

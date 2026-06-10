@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
+import 'dart:async';
 import '../services/api_service.dart';
 
 // --- MODEL DATA UNTUK GRAFIK DINAMIS ---
@@ -17,8 +18,8 @@ class TrackingPage extends StatefulWidget {
 }
 
 class _TrackingPageState extends State<TrackingPage> {
-  int _selectedTab = 0; 
-  double _totalNominal = 0; 
+  int _selectedTab = 0;
+  double _totalNominal = 0;
   List<dynamic> _barChart = [];
 
   double _pembayaranTotal = 0.0;
@@ -27,6 +28,7 @@ class _TrackingPageState extends State<TrackingPage> {
 
   List<ChartData> dataPengeluaran = [ChartData(0, const Color(0xFFE0E0E0))];
   OverlayEntry? _hoverOverlay;
+  Timer? _touchOverlayTimer;
 
   @override
   void initState() {
@@ -161,8 +163,14 @@ class _TrackingPageState extends State<TrackingPage> {
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
                           child: Text(
                             _periodeText,
                             style: const TextStyle(
@@ -179,7 +187,10 @@ class _TrackingPageState extends State<TrackingPage> {
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(vertical: 35),
-                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
                       child: Center(
                         child: Stack(
                           alignment: Alignment.center,
@@ -188,7 +199,9 @@ class _TrackingPageState extends State<TrackingPage> {
                               width: 140,
                               height: 140,
                               child: CustomPaint(
-                                painter: DynamicDoughnutPainter(dataList: dataPengeluaran),
+                                painter: DynamicDoughnutPainter(
+                                  dataList: dataPengeluaran,
+                                ),
                               ),
                             ),
                             Text(
@@ -241,8 +254,14 @@ class _TrackingPageState extends State<TrackingPage> {
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
                           child: Text(
                             _periodeText,
                             style: const TextStyle(
@@ -256,10 +275,7 @@ class _TrackingPageState extends State<TrackingPage> {
                       ],
                     ),
                     const SizedBox(height: 25),
-                    SizedBox(
-                      height: 160,
-                      child: _buildDynamicBarChart(),
-                    ),
+                    SizedBox(height: 160, child: _buildDynamicBarChart()),
                     const SizedBox(height: 20),
                     Wrap(
                       spacing: 10,
@@ -313,25 +329,51 @@ class _TrackingPageState extends State<TrackingPage> {
 
   Widget _buildLegendItem(Color dotColor, String label) {
     String amountText = '';
-    if (label == 'Pembayaran') amountText = _formatRupiahSingkat(_pembayaranTotal);
+    if (label == 'Pembayaran')
+      amountText = _formatRupiahSingkat(_pembayaranTotal);
     if (label == 'Top up') amountText = _formatRupiahSingkat(_topUpTotal);
     if (label == 'Transfer') amountText = _formatRupiahSingkat(_transferTotal);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(width: 8, height: 8, decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle)),
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+          ),
           const SizedBox(width: 8),
-          Text(label, style: const TextStyle(color: Color(0xFF4D55CC), fontSize: 11, fontWeight: FontWeight.w700, fontFamily: 'Poppins')),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF4D55CC),
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              fontFamily: 'Poppins',
+            ),
+          ),
           if (amountText.isNotEmpty) ...[
             const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(color: const Color(0xFFEEF0FF), borderRadius: BorderRadius.circular(12)),
-              child: Text(amountText, style: const TextStyle(color: Color(0xFF2C265C), fontSize: 11, fontWeight: FontWeight.w800)),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEEF0FF),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                amountText,
+                style: const TextStyle(
+                  color: Color(0xFF2C265C),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
             ),
           ],
         ],
@@ -341,32 +383,41 @@ class _TrackingPageState extends State<TrackingPage> {
 
   Widget _buildDynamicBarChart() {
     final items = _barChart.isEmpty ? [] : _barChart;
-    
+
     // PENGAMAN: Hindari total menjadi negatif
     final maxValue = items.fold<double>(0, (maxVal, item) {
       final nominal = item['nominal'] ?? {};
-      final total = max(0.0, (nominal['pembayaran'] ?? 0).toDouble()) +
-                    max(0.0, (nominal['top_up'] ?? 0).toDouble()) +
-                    max(0.0, (nominal['transfer_keluar'] ?? 0).toDouble());
+      final total =
+          max(0.0, (nominal['pembayaran'] ?? 0).toDouble()) +
+          max(0.0, (nominal['top_up'] ?? 0).toDouble()) +
+          max(0.0, (nominal['transfer_keluar'] ?? 0).toDouble());
       return total > maxVal ? total : maxVal;
     });
 
     if (items.isEmpty) {
       return const Center(
-        child: Text('Belum ada data statistik', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14, fontFamily: 'Poppins')),
+        child: Text(
+          'Belum ada data statistik',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+            fontSize: 14,
+            fontFamily: 'Poppins',
+          ),
+        ),
       );
     }
-    
+
     List<Widget> barWidgets = [];
     for (var i = 0; i < items.length; i++) {
       final item = items[i];
       final nominal = item['nominal'] ?? {};
-      
+
       // PENGAMAN: Pastikan 3 Variabel warna tidak ada yang negatif
       final pembayaran = max(0.0, (nominal['pembayaran'] ?? 0).toDouble());
       final topUp = max(0.0, (nominal['top_up'] ?? 0).toDouble());
       final transfer = max(0.0, (nominal['transfer_keluar'] ?? 0).toDouble());
-      
+
       // PENGAMAN: Mencegah error pembagian dengan 0 (Infinity/NaN)
       final scale = (maxValue <= 0) ? 0.0 : (1 / maxValue);
 
@@ -376,16 +427,25 @@ class _TrackingPageState extends State<TrackingPage> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 6.0),
           child: MouseRegion(
-            onEnter: (e) => _showHoverOverlay(key, item, pembayaran, topUp, transfer),
+            onEnter: (e) =>
+                _showHoverOverlay(key, item, pembayaran, topUp, transfer),
             onExit: (e) => _removeHoverOverlay(),
-            child: Container(
-              key: key,
-              color: Colors.transparent,
-              child: _buildStackedBar(
-                item['label'] ?? '-',
-                pembayaran * scale,
-                topUp * scale,
-                transfer * scale,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTapDown: (_) =>
+                  _showTouchOverlay(key, item, pembayaran, topUp, transfer),
+              onLongPressStart: (_) =>
+                  _showTouchOverlay(key, item, pembayaran, topUp, transfer),
+              onTapCancel: _scheduleTouchOverlayRemoval,
+              child: Container(
+                key: key,
+                color: Colors.transparent,
+                child: _buildStackedBar(
+                  item['label'] ?? '-',
+                  pembayaran * scale,
+                  topUp * scale,
+                  transfer * scale,
+                ),
               ),
             ),
           ),
@@ -403,11 +463,34 @@ class _TrackingPageState extends State<TrackingPage> {
     );
   }
 
- void _showHoverOverlay(GlobalKey key, dynamic item, double pembayaran, double topUp, double transfer) {
+  void _showTouchOverlay(
+    GlobalKey key,
+    dynamic item,
+    double pembayaran,
+    double topUp,
+    double transfer,
+  ) {
+    _showHoverOverlay(key, item, pembayaran, topUp, transfer);
+    _scheduleTouchOverlayRemoval();
+  }
+
+  void _scheduleTouchOverlayRemoval() {
+    _touchOverlayTimer?.cancel();
+    _touchOverlayTimer = Timer(const Duration(seconds: 2), _removeHoverOverlay);
+  }
+
+  void _showHoverOverlay(
+    GlobalKey key,
+    dynamic item,
+    double pembayaran,
+    double topUp,
+    double transfer,
+  ) {
+    _touchOverlayTimer?.cancel();
     _removeHoverOverlay();
     final ctx = key.currentContext;
     if (ctx == null) return;
-    
+
     final RenderBox box = ctx.findRenderObject() as RenderBox;
     final Offset offset = box.localToGlobal(Offset.zero);
 
@@ -415,8 +498,8 @@ class _TrackingPageState extends State<TrackingPage> {
       builder: (context) {
         return Positioned(
           // Sesuaikan 'left' dan 'top' agar kartu muncul tepat di tengah atas batang
-          left: offset.dx - 75, 
-          top: offset.dy - 160, 
+          left: offset.dx - 75,
+          top: offset.dy - 160,
           child: Material(
             color: Colors.transparent,
             child: _HoverCard(
@@ -434,6 +517,7 @@ class _TrackingPageState extends State<TrackingPage> {
   }
 
   void _removeHoverOverlay() {
+    _touchOverlayTimer?.cancel();
     try {
       _hoverOverlay?.remove();
     } catch (e) {}
@@ -442,11 +526,17 @@ class _TrackingPageState extends State<TrackingPage> {
 
   @override
   void dispose() {
+    _touchOverlayTimer?.cancel();
     _removeHoverOverlay();
     super.dispose();
   }
 
-  Widget _buildStackedBar(String label, double darkPct, double midPct, double lightPct) {
+  Widget _buildStackedBar(
+    String label,
+    double darkPct,
+    double midPct,
+    double lightPct,
+  ) {
     const double maxBarHeight = 120.0;
 
     // Pastikan persentase absolut aman (antara 0.0 hingga 1.0)
@@ -470,7 +560,13 @@ class _TrackingPageState extends State<TrackingPage> {
           decoration: BoxDecoration(
             color: const Color(0xFFEEF0FF),
             borderRadius: BorderRadius.circular(12),
-            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2))],
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black12,
+                blurRadius: 6,
+                offset: Offset(0, 2),
+              ),
+            ],
           ),
           alignment: Alignment.bottomCenter,
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
@@ -481,21 +577,31 @@ class _TrackingPageState extends State<TrackingPage> {
                 Container(
                   height: max(0.0, availableHeight * lightPct), // PENGAMAN
                   width: double.infinity,
-                  decoration: BoxDecoration(color: const Color(0xFFD2CFF0), borderRadius: BorderRadius.circular(8)),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD2CFF0),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
-              if (lightPct > 0 && (midPct > 0 || darkPct > 0)) const SizedBox(height: 4),
+              if (lightPct > 0 && (midPct > 0 || darkPct > 0))
+                const SizedBox(height: 4),
               if (midPct > 0)
                 Container(
                   height: max(0.0, availableHeight * midPct), // PENGAMAN
                   width: double.infinity,
-                  decoration: BoxDecoration(color: const Color(0xFF4D55CC), borderRadius: BorderRadius.circular(8)),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF4D55CC),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
               if (midPct > 0 && darkPct > 0) const SizedBox(height: 4),
               if (darkPct > 0)
                 Container(
                   height: max(0.0, availableHeight * darkPct), // PENGAMAN
                   width: double.infinity,
-                  decoration: BoxDecoration(color: const Color(0xFF2C265C), borderRadius: BorderRadius.circular(8)),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2C265C),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
             ],
           ),
@@ -504,9 +610,20 @@ class _TrackingPageState extends State<TrackingPage> {
         Container(
           width: 28,
           height: 28,
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+          ),
           alignment: Alignment.center,
-          child: Text(label, style: const TextStyle(color: Color(0xFF4D55CC), fontWeight: FontWeight.w900, fontSize: 12, fontFamily: 'Poppins')),
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF4D55CC),
+              fontWeight: FontWeight.w900,
+              fontSize: 12,
+              fontFamily: 'Poppins',
+            ),
+          ),
         ),
       ],
     );
@@ -519,7 +636,6 @@ class _HoverCard extends StatelessWidget {
   final double transfer;
 
   const _HoverCard({
-    super.key,
     required this.pembayaran,
     required this.topUp,
     required this.transfer,
@@ -527,8 +643,10 @@ class _HoverCard extends StatelessWidget {
 
   String _format(double v) {
     if (v <= 0) return 'Rp 0';
-    if (v >= 1000000) return 'Rp ${(v / 1000000).toStringAsFixed(v % 1000000 == 0 ? 0 : 1)} jt';
-    if (v >= 1000) return 'Rp ${(v / 1000).toStringAsFixed(v % 1000 == 0 ? 0 : 1)} rb';
+    if (v >= 1000000)
+      return 'Rp ${(v / 1000000).toStringAsFixed(v % 1000000 == 0 ? 0 : 1)} jt';
+    if (v >= 1000)
+      return 'Rp ${(v / 1000).toStringAsFixed(v % 1000 == 0 ? 0 : 1)} rb';
     return 'Rp ${v.toInt()}';
   }
 
@@ -552,7 +670,14 @@ class _HoverCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Overview', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF2C265C), fontSize: 14)),
+          const Text(
+            'Overview',
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF2C265C),
+              fontSize: 14,
+            ),
+          ),
           const SizedBox(height: 12),
           _rowItem(const Color(0xFF2C265C), 'Pembayaran', _format(pembayaran)),
           const SizedBox(height: 8),
@@ -570,12 +695,33 @@ class _HoverCard extends StatelessWidget {
       children: [
         Row(
           children: [
-            Container(width: 8, height: 8, decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle)),
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: dotColor,
+                shape: BoxShape.circle,
+              ),
+            ),
             const SizedBox(width: 8),
-            Text(label, style: const TextStyle(color: Color(0xFF2C265C), fontSize: 12, fontWeight: FontWeight.w600)),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Color(0xFF2C265C),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ],
         ),
-        Text(amount, style: const TextStyle(color: Color(0xFF2C265C), fontSize: 12, fontWeight: FontWeight.w800)),
+        Text(
+          amount,
+          style: const TextStyle(
+            color: Color(0xFF2C265C),
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
       ],
     );
   }
@@ -597,11 +743,17 @@ class DynamicDoughnutPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
 
     double total = dataList.fold(0, (sum, item) => sum + item.nominal);
-    
+
     // PENGAMAN: Jika total 0, gambar lingkaran abu-abu kosong (tampilan tetap manis)
     if (total <= 0) {
       paint.color = Colors.grey.shade300;
-      canvas.drawArc(Rect.fromCircle(center: center, radius: radius), 0, 2 * pi, false, paint);
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        0,
+        2 * pi,
+        false,
+        paint,
+      );
       return;
     }
 
@@ -613,7 +765,7 @@ class DynamicDoughnutPainter extends CustomPainter {
 
       double sweepAngle = (item.nominal / total) * 2 * pi;
       double actualSweep = sweepAngle - gapAngle;
-      
+
       // PENGAMAN: Cegah arc menjadi nilai negatif atau terlalu kecil sehingga merusak UI
       if (actualSweep <= 0) actualSweep = 0.001;
 
