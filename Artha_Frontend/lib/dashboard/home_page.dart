@@ -492,61 +492,78 @@ class _HomePageState extends State<HomePage> {
 
   // --- WIDGET HELPER: PENGUBAH DATA API MENJADI UI LIST TRANSAKSI ---
   Widget _renderTransactionItemDinamis(dynamic trx) {
-    String type = trx['transaction_type'] ?? '';
-    String mutasi = trx['mutasi'] ?? '';
-    double amount = (trx['amount'] ?? 0).toDouble();
-    String notes = trx['notes'] ?? '';
-    String date = trx['tanggal'] ?? '';
+    final String type = (trx['transaction_type'] ?? '').toString().toUpperCase();
+    final String mutasi = (trx['mutasi'] ?? '').toString().toUpperCase();
+    final double amount = (trx['amount'] ?? 0).toDouble();
+    final String notes = (trx['notes'] ?? '').toString();
+    final String date = (trx['tanggal'] ?? '').toString();
 
     // Default tampilan
     String title = "Transaksi";
     Color iconBgColor = const Color(0xFF0090FF);
     IconData icon = Icons.receipt_long;
-    String amountText = "";
-
-    if (mutasi == "MASUK") {
-      amountText = "+Rp ${_formatRupiah(amount)}";
-    } else {
-      amountText = "-Rp ${_formatRupiah(amount)}";
-    }
+    String amountText =
+        "${mutasi == "MASUK" ? "+" : "-"}Rp ${_formatRupiah(amount)}";
 
     // Logika Pemilihan Ikon & Warna sesuai API Backend-mu
     if (type == "TOPUP") {
       title = "Isi Saldo";
       iconBgColor = const Color(0xFF16C45E); // Hijau
       icon = Icons.arrow_downward;
+      amountText = "+Rp ${_formatRupiah(amount)}";
     } else if (type == "TRANSFER") {
       if (mutasi == "KELUAR") {
-        title = "Transfer Keluar";
+        title = "Kirim ke Bank";
         iconBgColor = const Color(0xFF0090FF); // Biru
-        icon = Icons.call_made;
+        icon = Icons.north_east;
+        amountText = "-Rp ${_formatRupiah(amount)}";
       } else {
-        title = "Transfer Masuk";
+        title = "Uang Masuk";
         iconBgColor = const Color(0xFF16C45E); // Hijau
-        icon = Icons.arrow_downward;
+        icon = Icons.call_received;
+        amountText = "+Rp ${_formatRupiah(amount)}";
       }
-    } else if (type == "PULSA" || type == "PLN") {
+    } else if (type == "PULSA" || type == "PLN" || type == "QRIS") {
       title = "Pembayaran";
       iconBgColor = const Color(0xFFFF4848); // Merah
       icon = Icons.arrow_upward;
-    } else if (type == "SAVING_IN" || type == "SAVING_OUT") {
-      title = "Tabungan";
+      amountText = "-Rp ${_formatRupiah(amount)}";
+    } else if (type == "SAVING_IN") {
+      title = "Saldo ke Wishlist";
       iconBgColor = const Color(0xFFF5A623); // Oren
-      icon = mutasi == "MASUK" ? Icons.arrow_downward : Icons.arrow_upward;
+      icon = Icons.swap_horiz;
+      amountText = "Rp ${_formatRupiah(amount)}";
+    } else if (type == "SAVING_OUT") {
+      title = "Uang Masuk";
+      iconBgColor = const Color(0xFF16C45E); // Hijau
+      icon = Icons.call_received;
+      amountText = "+Rp ${_formatRupiah(amount)}";
     }
 
     // Hindari notes kepanjangan yang bikin layout rusak
-    String shortNotes = notes.length > 25
+    final shortNotes = notes.length > 25
         ? "${notes.substring(0, 25)}..."
         : notes;
+    final subtitle = shortNotes.isEmpty ? _subtitleForType(type) : shortNotes;
 
     return _buildTransactionItem(
       title,
-      "$shortNotes\n$date",
+      subtitle,
+      date,
       amountText,
       iconBgColor,
       icon,
     );
+  }
+
+  String _subtitleForType(String type) {
+    if (type == 'PLN') return 'Listrik PLN';
+    if (type == 'PULSA') return 'Pulsa dan Data';
+    if (type == 'QRIS') return 'QRIS';
+    if (type == 'SAVING_IN' || type == 'SAVING_OUT') return 'Wishlist';
+    if (type == 'TOPUP') return 'Top Up';
+    if (type == 'TRANSFER') return 'Transfer';
+    return '-';
   }
 
   // Helper Widget Button
@@ -588,13 +605,14 @@ class _HomePageState extends State<HomePage> {
   Widget _buildTransactionItem(
     String title,
     String sub,
+    String date,
     String amount,
     Color iconBgColor,
     IconData icon,
   ) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
       decoration: BoxDecoration(
         color: const Color(0xFF4D55CC),
         borderRadius: BorderRadius.circular(20),
@@ -602,20 +620,23 @@ class _HomePageState extends State<HomePage> {
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
               color: iconBgColor,
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: Colors.white, size: 20),
+            child: Icon(icon, color: Colors.white, size: 27),
           ),
-          const SizedBox(width: 15),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w800,
@@ -626,23 +647,43 @@ class _HomePageState extends State<HomePage> {
                 const SizedBox(height: 2),
                 Text(
                   sub,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Colors.white70,
                     fontSize: 10,
                     fontFamily: 'Poppins',
-                    height: 1.4,
+                    height: 1.2,
+                  ),
+                ),
+                Text(
+                  date,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 9,
+                    fontFamily: 'Poppins',
+                    height: 1.2,
                   ),
                 ),
               ],
             ),
           ),
-          Text(
-            amount,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-              fontSize: 13,
-              fontFamily: 'Poppins',
+          const SizedBox(width: 10),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 106),
+            child: Text(
+              amount,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                fontSize: 13,
+                fontFamily: 'Poppins',
+              ),
             ),
           ),
         ],

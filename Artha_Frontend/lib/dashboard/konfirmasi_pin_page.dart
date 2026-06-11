@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'main_page.dart';
 import '../services/api_service.dart';
 
 class KonfirmasiPinPage extends StatefulWidget {
@@ -60,7 +61,11 @@ class _KonfirmasiPinPageState extends State<KonfirmasiPinPage> {
           backgroundColor: Colors.green,
         ),
       );
-      Navigator.popUntil(context, (route) => route.isFirst);
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const MainPage(initialIndex: 0)),
+        (route) => false,
+      );
     } else {
       final message =
           res['message'] ?? 'Gagal mengubah PIN. Silakan coba lagi.';

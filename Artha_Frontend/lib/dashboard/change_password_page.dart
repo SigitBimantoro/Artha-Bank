@@ -83,7 +83,10 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
       backgroundColor: const Color(0xFFF9F9F9),
       appBar: AppBar(
         backgroundColor: primaryColor,
-        title: const Text('Ubah Kata Sandi'),
+        title: const Text(
+          'Ubah Kata Sandi',
+          style: TextStyle(color: Colors.white),
+        ),
       ),
       body: SafeArea(
         child: Padding(

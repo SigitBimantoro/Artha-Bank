@@ -12,8 +12,6 @@ class EditProfilePage extends StatefulWidget {
 
 class _EditProfilePageState extends State<EditProfilePage> {
   final TextEditingController _namaController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _phoneController = TextEditingController();
   final ImagePicker _imagePicker = ImagePicker();
 
   bool _isLoading = true;
@@ -35,8 +33,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
         if (res['success']) {
           final data = res['data']['data'];
           _namaController.text = data['nama'] ?? '';
-          _emailController.text = data['email'] ?? '';
-          _phoneController.text = data['phone_number'] ?? '';
           _photoUrl = data['photo_url'];
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -62,12 +58,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   // Fungsi untuk mengirim data baru ke backend
   Future<void> _simpanPerubahan() async {
-    if (_namaController.text.isEmpty ||
-        _emailController.text.isEmpty ||
-        _phoneController.text.isEmpty) {
+    if (_namaController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Semua kolom harus diisi!'),
+          content: Text('Nama lengkap wajib diisi!'),
           backgroundColor: Colors.red,
         ),
       );
@@ -78,8 +72,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
     final res = await ApiService.updateProfile(
       nama: _namaController.text,
-      email: _emailController.text,
-      phoneNumber: _phoneController.text,
       photoPath: _selectedPhotoPath,
     );
 
@@ -111,8 +103,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
   @override
   void dispose() {
     _namaController.dispose();
-    _emailController.dispose();
-    _phoneController.dispose();
     super.dispose();
   }
 
@@ -243,14 +233,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
                           // --- FORM INPUT ---
                           _buildEditField("Nama lengkap", _namaController),
-                          const SizedBox(height: 20),
-                          _buildEditField("Email", _emailController),
-                          const SizedBox(height: 20),
-                          _buildEditField(
-                            "Nomor Telepon",
-                            _phoneController,
-                            isNumber: true,
-                          ),
                           const SizedBox(height: 40),
                         ],
                       ),
@@ -299,11 +281,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   // Widget Helper Form Input persis seperti aslinya
-  Widget _buildEditField(
-    String label,
-    TextEditingController controller, {
-    bool isNumber = false,
-  }) {
+  Widget _buildEditField(String label, TextEditingController controller) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -319,7 +297,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
-          keyboardType: isNumber ? TextInputType.phone : TextInputType.text,
+          keyboardType: TextInputType.text,
           style: const TextStyle(
             color: Color(0xFF4D55CC),
             fontSize: 14,

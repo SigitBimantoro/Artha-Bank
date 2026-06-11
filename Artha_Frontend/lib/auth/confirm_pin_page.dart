@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
-import '../services/api_service.dart'; // <-- Import API Service
+
+import '../dashboard/main_page.dart';
+import '../services/api_service.dart';
 
 class ConfirmPinPage extends StatefulWidget {
   final String newPin;
+
   const ConfirmPinPage({super.key, required this.newPin});
 
   @override
@@ -10,8 +13,10 @@ class ConfirmPinPage extends StatefulWidget {
 }
 
 class _ConfirmPinPageState extends State<ConfirmPinPage> {
+  static const Color primaryColor = Color(0xFF4D55CC);
+
   final TextEditingController _confirmPinController = TextEditingController();
-  bool _isLoading = false; // State untuk animasi loading
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -19,33 +24,42 @@ class _ConfirmPinPageState extends State<ConfirmPinPage> {
     super.dispose();
   }
 
-  // --- LOGIKA MENYIMPAN PIN KE BACKEND ---
   Future<void> _simpanPin() async {
-    if (_confirmPinController.text == widget.newPin) {
-      setState(() => _isLoading = true);
+    if (_confirmPinController.text != widget.newPin) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Konfirmasi PIN tidak cocok!'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      _confirmPinController.clear();
+      setState(() {});
+      return;
+    }
 
-      // Memanggil API Set PIN
-      final res = await ApiService.setPin(widget.newPin);
+    setState(() => _isLoading = true);
+    final res = await ApiService.setPin(widget.newPin);
+    if (!mounted) return;
+    setState(() => _isLoading = false);
 
-      if (mounted) {
-        setState(() => _isLoading = false);
-
-        if (res['success']) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("PIN Keamanan berhasil disimpan!"), backgroundColor: Colors.green),
-          );
-          // Kembali ke halaman Profil / Beranda
-          Navigator.popUntil(context, (route) => route.isFirst);
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(res['message']), backgroundColor: Colors.red),
-          );
-          _confirmPinController.clear();
-        }
-      }
+    if (res['success'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('PIN Keamanan berhasil disimpan!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const MainPage(initialIndex: 0)),
+        (route) => false,
+      );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Konfirmasi PIN tidak cocok!"), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text(res['message'] ?? 'Gagal menyimpan PIN'),
+          backgroundColor: Colors.red,
+        ),
       );
       _confirmPinController.clear();
       setState(() {});
@@ -54,149 +68,191 @@ class _ConfirmPinPageState extends State<ConfirmPinPage> {
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryColor = Color(0xFF4D55CC);
+    final width = MediaQuery.sizeOf(context).width;
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // --- HEADER ---
-              Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: const BoxDecoration(
-                        color: primaryColor,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
-                    ),
-                  ),
-                  const Expanded(
-                    child: Center(
-                      child: Text(
-                        "Konfirmasi PIN baru",
-                        style: TextStyle(
-                          color: primaryColor,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          fontFamily: 'Poppins',
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 40), 
-                ],
-              ),
-              const SizedBox(height: 50),
-
-              const Text(
-                "Masukkan PIN baru Anda di bawah ini.",
-                style: TextStyle(
-                  color: primaryColor,
-                  fontSize: 13,
-                  fontFamily: 'Poppins',
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.only(bottom: 64),
+              decoration: const BoxDecoration(
+                color: primaryColor,
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(60),
+                  bottomRight: Radius.circular(60),
                 ),
               ),
-              const SizedBox(height: 30),
-
-              // --- 6 KOTAK PIN INPUT (TRIK TERTUMPUK) ---
-              SizedBox(
-                height: 60, // Tinggi area klik
+              child: ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(60),
+                  bottomRight: Radius.circular(60),
+                ),
                 child: Stack(
-                  alignment: Alignment.center,
                   children: [
-                    // 1. KOTAK VISUAL (DI BAWAH)
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: List.generate(6, (index) {
-                        String char = _confirmPinController.text.length > index ? _confirmPinController.text[index] : "";
-                        return Container(
-                          width: 45,
-                          height: 55,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: primaryColor, width: 1.5),
-                          ),
-                          child: Center(
-                            child: char.isEmpty
-                                ? Container(
-                                    width: 15,
-                                    height: 2,
-                                    color: primaryColor,
-                                  )
-                                : const Text(
-                                    "●",
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      color: primaryColor,
-                                    ),
-                                  ),
-                          ),
-                        );
-                      }),
+                    Positioned(
+                      top: 0,
+                      right: 0,
+                      width: width * 0.78,
+                      height: 330,
+                      child: Image.asset(
+                        'assets/BGSEC.jpg',
+                        fit: BoxFit.cover,
+                        opacity: const AlwaysStoppedAnimation(0.78),
+                        errorBuilder: (context, error, stackTrace) =>
+                            const SizedBox.shrink(),
+                      ),
                     ),
-                    
-                    // 2. TEXTFIELD ASLI (DI ATAS, TRANSPARAN PENUH)
-                    Positioned.fill(
-                      child: TextField(
-                        controller: _confirmPinController,
-                        keyboardType: TextInputType.number,
-                        maxLength: 6,
-                        autofocus: true, 
-                        showCursor: false, 
-                        enableInteractiveSelection: false, 
-                        style: const TextStyle(
-                          color: Colors.transparent, 
-                          fontSize: 1, 
+                    SafeArea(
+                      bottom: false,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 88, 24, 0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Konfirmasi PIN',
+                              maxLines: 1,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 39,
+                                fontWeight: FontWeight.w900,
+                                fontFamily: 'Poppins',
+                              ),
+                            ),
+                            const SizedBox(height: 30),
+                            const Text(
+                              'Masukkan kembali 6 digit PIN yang baru saja Anda buat. Pastikan kombinasi angka yang dimasukkan sudah persis sama dengan sebelumnya.',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                height: 1.42,
+                                fontWeight: FontWeight.w400,
+                                fontFamily: 'Poppins',
+                              ),
+                            ),
+                            const SizedBox(height: 66),
+                            _buildPinBoxes(),
+                          ],
                         ),
-                        decoration: const InputDecoration(
-                          border: InputBorder.none,
-                          counterText: "",
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                        onChanged: (val) => setState(() {}),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 50),
-
-              // --- TOMBOL SIMPAN ---
-              SizedBox(
+            ),
+            const SizedBox(height: 54),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 17),
+              child: SizedBox(
                 width: double.infinity,
-                height: 50,
+                height: 53,
                 child: ElevatedButton(
-                  onPressed: (_confirmPinController.text.length == 6 && !_isLoading) ? _simpanPin : null,
+                  onPressed:
+                      (_confirmPinController.text.length == 6 && !_isLoading)
+                      ? _simpanPin
+                      : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryColor,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                    disabledBackgroundColor: primaryColor.withValues(
+                      alpha: 0.45,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
                     elevation: 0,
                   ),
-                  child: _isLoading 
-                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Text(
-                    "Simpan PIN",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      fontFamily: 'Poppins',
-                    ),
-                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 22,
+                          width: 22,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.5,
+                          ),
+                        )
+                      : const Text(
+                          'Simpan PIN',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                            fontFamily: 'Poppins',
+                          ),
+                        ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildPinBoxes() {
+    return SizedBox(
+      height: 76,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: List.generate(6, (index) {
+              final char = _confirmPinController.text.length > index
+                  ? _confirmPinController.text[index]
+                  : '';
+
+              return Container(
+                width: 45,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(7),
+                  boxShadow: [
+                    if (index >= 4)
+                      BoxShadow(
+                        color: Colors.white.withValues(alpha: 0.24),
+                        blurRadius: 0,
+                        spreadRadius: 4,
+                      ),
+                  ],
+                ),
+                child: Center(
+                  child: char.isEmpty
+                      ? Container(width: 18, height: 3, color: primaryColor)
+                      : Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: primaryColor,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                ),
+              );
+            }),
+          ),
+          Positioned.fill(
+            child: TextField(
+              controller: _confirmPinController,
+              keyboardType: TextInputType.number,
+              maxLength: 6,
+              autofocus: true,
+              showCursor: false,
+              enableInteractiveSelection: false,
+              style: const TextStyle(color: Colors.transparent, fontSize: 1),
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                counterText: '',
+                contentPadding: EdgeInsets.zero,
+              ),
+              onChanged: (val) => setState(() {}),
+            ),
+          ),
+        ],
       ),
     );
   }
