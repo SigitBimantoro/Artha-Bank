@@ -36,9 +36,7 @@ class _QRISScannerPageState extends State<QRISScannerPage> {
 
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(
-        builder: (_) => QrisPaymentPage(data: qrisData),
-      ),
+      MaterialPageRoute(builder: (_) => QrisPaymentPage(data: qrisData)),
     );
   }
 
@@ -53,7 +51,7 @@ class _QRISScannerPageState extends State<QRISScannerPage> {
     final mediaQuery = MediaQuery.of(context);
     final screenWidth = mediaQuery.size.width;
 
-    final frameSize = screenWidth * 0.78;
+    final frameSize = (screenWidth * 0.78).clamp(250.0, 344.0);
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -71,9 +69,7 @@ class _QRISScannerPageState extends State<QRISScannerPage> {
                 ),
 
                 Positioned.fill(
-                  child: Container(
-                    color: Colors.black.withOpacity(0.55),
-                  ),
+                  child: Container(color: Colors.black.withValues(alpha: 0.55)),
                 ),
 
                 Positioned.fill(
@@ -81,6 +77,10 @@ class _QRISScannerPageState extends State<QRISScannerPage> {
                     top: false,
                     child: LayoutBuilder(
                       builder: (context, constraints) {
+                        final bottomInset = mediaQuery.padding.bottom;
+                        final promptBottom = bottomInset + 18;
+                        final promptFontSize = screenWidth < 390 ? 18.0 : 21.0;
+
                         return Stack(
                           children: [
                             Positioned(
@@ -131,8 +131,12 @@ class _QRISScannerPageState extends State<QRISScannerPage> {
                                             begin: Alignment.topCenter,
                                             end: Alignment.bottomCenter,
                                             colors: [
-                                              primaryColor.withOpacity(0.55),
-                                              primaryColor.withOpacity(0.12),
+                                              primaryColor.withValues(
+                                                alpha: 0.55,
+                                              ),
+                                              primaryColor.withValues(
+                                                alpha: 0.12,
+                                              ),
                                               Colors.transparent,
                                             ],
                                           ),
@@ -147,22 +151,24 @@ class _QRISScannerPageState extends State<QRISScannerPage> {
                             Positioned(
                               left: 32,
                               right: 32,
-                              bottom: 28,
+                              bottom: promptBottom,
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 22,
-                                  vertical: 16,
+                                  horizontal: 20,
+                                  vertical: 14,
                                 ),
                                 decoration: BoxDecoration(
                                   color: Colors.white,
                                   borderRadius: BorderRadius.circular(32),
                                 ),
-                                child: const Text(
+                                child: Text(
                                   'Posisikan kode QRIS di dalam kotak',
                                   textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                     color: primaryColor,
-                                    fontSize: 21,
+                                    fontSize: promptFontSize,
                                     fontWeight: FontWeight.w900,
                                     fontFamily: 'Poppins',
                                   ),
@@ -254,17 +260,9 @@ class _ScanFramePainter extends CustomPainter {
       Offset(size.width - corner, 0),
       paint,
     );
-    canvas.drawLine(
-      Offset(size.width, 0),
-      Offset(size.width, corner),
-      paint,
-    );
+    canvas.drawLine(Offset(size.width, 0), Offset(size.width, corner), paint);
 
-    canvas.drawLine(
-      Offset(0, size.height),
-      Offset(corner, size.height),
-      paint,
-    );
+    canvas.drawLine(Offset(0, size.height), Offset(corner, size.height), paint);
     canvas.drawLine(
       Offset(0, size.height),
       Offset(0, size.height - corner),

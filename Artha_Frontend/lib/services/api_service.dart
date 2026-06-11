@@ -290,8 +290,6 @@ class ApiService {
   /// [photoPath] opsional — isi jika user mengganti foto profil
   static Future<Map<String, dynamic>> updateProfile({
     required String nama,
-    required String email,
-    required String phoneNumber,
     String? photoPath,
   }) async {
     try {
@@ -304,8 +302,6 @@ class ApiService {
       request.headers['Authorization'] = 'Bearer $token';
 
       if (nama.isNotEmpty) request.fields['nama'] = nama;
-      if (email.isNotEmpty) request.fields['email'] = email;
-      if (phoneNumber.isNotEmpty) request.fields['phone_number'] = phoneNumber;
       if (photoPath != null && photoPath.isNotEmpty) {
         request.files.add(
           await http.MultipartFile.fromPath('photo', photoPath),

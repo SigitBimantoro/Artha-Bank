@@ -108,7 +108,7 @@ class _TopUpPageState extends State<TopUpPage> {
         _TopUpMethod(
           name: 'Indomaret',
           value: 'Indomaret',
-          assetPath: 'assets/Frame 156-6.png',
+          assetPath: 'assets/indomaret.png',
           guideTitle: 'Petunjuk Transaksi di Kasir',
           guideSteps: const [
             'Datangi kasir dan sampaikan ingin top up Artha.',
@@ -121,7 +121,7 @@ class _TopUpPageState extends State<TopUpPage> {
         _TopUpMethod(
           name: 'Alfamaret',
           value: 'Alfamaret',
-          assetPath: 'assets/Alfamaret.png',
+          assetPath: 'assets/alfamart.png',
           guideTitle: 'Petunjuk Transaksi di Kasir',
           guideSteps: const [
             'Datangi kasir dan sampaikan ingin top up Artha.',
