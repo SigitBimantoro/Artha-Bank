@@ -24,6 +24,8 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
   bool _obscureConfirm = true;
   bool _isLoading = false;
 
+  static const Color primaryColor = Color(0xFF4D55CC);
+
   Future<void> _submitReset() async {
     if (_newPasswordController.text.isEmpty || _confirmPasswordController.text.isEmpty) {
       _showError("Kolom kata sandi tidak boleh kosong.");
@@ -37,7 +39,6 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
 
     setState(() => _isLoading = true);
     
-    // Pemanggilan API Reset Password
     final res = await ApiService.resetPassword(
       email: widget.email, 
       otp: widget.otpCode,
@@ -70,7 +71,6 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
   }
 
   Widget _buildPasswordField(String label, String hint, TextEditingController controller, bool obscure, VoidCallback onToggle) {
-    const Color primaryColor = Color(0xFF4D55CC);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -79,18 +79,18 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
         TextFormField(
           controller: controller,
           obscureText: obscure,
-          style: const TextStyle(fontSize: 14, fontFamily: 'Poppins'),
+          style: const TextStyle(fontSize: 14, fontFamily: 'Poppins', color: primaryColor),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: TextStyle(color: primaryColor.withOpacity(0.5), fontSize: 13),
+            hintStyle: TextStyle(color: primaryColor.withValues(alpha: 0.5), fontSize: 13),
             contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             suffixIcon: IconButton(
-              icon: Icon(obscure ? Icons.visibility_off : Icons.visibility, color: primaryColor.withOpacity(0.7)),
+              icon: Icon(obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined, color: primaryColor),
               onPressed: onToggle,
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(25),
-              borderSide: const BorderSide(color: primaryColor, width: 1.5),
+              borderSide: const BorderSide(color: primaryColor, width: 1.2),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(25),
@@ -104,19 +104,21 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryColor = Color(0xFF4D55CC);
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    GestureDetector(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // HEADER
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: GestureDetector(
                       onTap: () => Navigator.pop(context),
                       child: Container(
                         padding: const EdgeInsets.all(10),
@@ -124,26 +126,46 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                         child: const Icon(Icons.arrow_back, color: Colors.white, size: 22),
                       ),
                     ),
-                    const SizedBox(width: 20),
-                    const Text("Atur Ulang Sandi", style: TextStyle(color: primaryColor, fontSize: 22, fontWeight: FontWeight.w900, fontFamily: 'Poppins')),
-                  ],
-                ),
-                const SizedBox(height: 40),
-                _buildPasswordField("Kata sandi baru", "Masukkan kata sandi baru", _newPasswordController, _obscureNew, () => setState(() => _obscureNew = !_obscureNew)),
-                const SizedBox(height: 20),
-                _buildPasswordField("Konfirmasi kata sandi baru", "Ulangi kata sandi baru", _confirmPasswordController, _obscureConfirm, () => setState(() => _obscureConfirm = !_obscureConfirm)),
-                const SizedBox(height: 40),
-                SizedBox(
-                  width: double.infinity,
-                  height: 55,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _submitReset,
-                    style: ElevatedButton.styleFrom(backgroundColor: primaryColor, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
-                    child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text("Konfirmasi Sandi", style: TextStyle(color: Colors.white, fontSize: 16)),
                   ),
+                  const Text(
+                    "Atur Ulang Sandi",
+                    style: TextStyle(color: primaryColor, fontSize: 22, fontWeight: FontWeight.w800, fontFamily: 'Poppins'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 40),
+
+              // DESKRIPSI
+              const Text(
+                "Masukkan Kata sandi baru Anda di bawah ini.",
+                textAlign: TextAlign.center,
+                style: TextStyle(color: primaryColor, fontSize: 13, fontFamily: 'Poppins'),
+              ),
+              const SizedBox(height: 40),
+
+              // INPUT FIELDS
+              _buildPasswordField("Kata sandi baru", "Masukkan kata sandi baru", _newPasswordController, _obscureNew, () => setState(() => _obscureNew = !_obscureNew)),
+              const SizedBox(height: 20),
+              _buildPasswordField("Konfirmasi kata sandi baru", "Ulangi kata sandi baru", _confirmPasswordController, _obscureConfirm, () => setState(() => _obscureConfirm = !_obscureConfirm)),
+              const SizedBox(height: 40),
+
+              // TOMBOL KONFIRMASI
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _submitReset,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor, 
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                    elevation: 0,
+                  ),
+                  child: _isLoading 
+                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
+                      : const Text("Konfirmasi Sandi", style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800, fontFamily: 'Poppins')),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

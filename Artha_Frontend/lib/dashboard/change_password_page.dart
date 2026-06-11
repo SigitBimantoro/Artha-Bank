@@ -9,16 +9,16 @@ class ChangePasswordPage extends StatefulWidget {
 }
 
 class _ChangePasswordPageState extends State<ChangePasswordPage> {
-  final TextEditingController _currentPasswordController =
-      TextEditingController();
+  final TextEditingController _currentPasswordController = TextEditingController();
   final TextEditingController _newPasswordController = TextEditingController();
-  final TextEditingController _confirmPasswordController =
-      TextEditingController();
+  final TextEditingController _confirmPasswordController = TextEditingController();
 
   bool _isLoading = false;
   bool _hideCurrent = true;
   bool _hideNew = true;
   bool _hideConfirm = true;
+
+  static const Color primaryColor = Color(0xFF4D55CC);
 
   @override
   void dispose() {
@@ -75,94 +75,128 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
     );
   }
 
+  Widget _buildPasswordField(String label, String hint, TextEditingController controller, bool obscure, VoidCallback onToggle) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(color: primaryColor, fontSize: 13, fontWeight: FontWeight.w700, fontFamily: 'Poppins'),
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: controller,
+          obscureText: obscure,
+          style: const TextStyle(fontSize: 14, fontFamily: 'Poppins', color: primaryColor),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(color: primaryColor.withValues(alpha: 0.5), fontSize: 13),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            suffixIcon: IconButton(
+              icon: Icon(obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined, color: primaryColor),
+              onPressed: onToggle,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(25),
+              borderSide: const BorderSide(color: primaryColor, width: 1.2),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(25),
+              borderSide: const BorderSide(color: primaryColor, width: 2),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    const Color primaryColor = Color(0xFF4D55CC);
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF9F9F9),
-      appBar: AppBar(
-        backgroundColor: primaryColor,
-        title: const Text(
-          'Ubah Kata Sandi',
-          style: TextStyle(color: Colors.white),
-        ),
-      ),
+      backgroundColor: Colors.white,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildPasswordField(
-                label: 'Kata sandi saat ini',
-                controller: _currentPasswordController,
-                obscure: _hideCurrent,
-                onToggle: () => setState(() => _hideCurrent = !_hideCurrent),
+              // HEADER
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: const BoxDecoration(color: primaryColor, shape: BoxShape.circle),
+                        child: const Icon(Icons.arrow_back, color: Colors.white, size: 22),
+                      ),
+                    ),
+                  ),
+                  const Text(
+                    "Ubah Kata Sandi",
+                    style: TextStyle(color: primaryColor, fontSize: 22, fontWeight: FontWeight.w800, fontFamily: 'Poppins'),
+                  ),
+                ],
               ),
-              const SizedBox(height: 18),
-              _buildPasswordField(
-                label: 'Kata sandi baru',
-                controller: _newPasswordController,
-                obscure: _hideNew,
-                onToggle: () => setState(() => _hideNew = !_hideNew),
+              const SizedBox(height: 40),
+
+              // DESKRIPSI
+              const Center(
+                child: Text(
+                  "Masukkan Kata sandi baru Anda di bawah ini.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: primaryColor, fontSize: 13, fontFamily: 'Poppins'),
+                ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 40),
+
+              // INPUT FIELDS
               _buildPasswordField(
-                label: 'Konfirmasi kata sandi baru',
-                controller: _confirmPasswordController,
-                obscure: _hideConfirm,
-                onToggle: () => setState(() => _hideConfirm = !_hideConfirm),
+                "Kata sandi saat ini",
+                "Masukkan kata sandi saat ini",
+                _currentPasswordController,
+                _hideCurrent,
+                () => setState(() => _hideCurrent = !_hideCurrent),
               ),
-              const Spacer(),
+              const SizedBox(height: 20),
+              _buildPasswordField(
+                "Kata sandi baru",
+                "Masukkan kata sandi baru",
+                _newPasswordController,
+                _hideNew,
+                () => setState(() => _hideNew = !_hideNew),
+              ),
+              const SizedBox(height: 20),
+              _buildPasswordField(
+                "Konfirmasi kata sandi baru",
+                "Ulangi kata sandi baru",
+                _confirmPasswordController,
+                _hideConfirm,
+                () => setState(() => _hideConfirm = !_hideConfirm),
+              ),
+              const SizedBox(height: 40),
+
+              // TOMBOL SIMPAN
               SizedBox(
                 width: double.infinity,
-                height: 55,
+                height: 50,
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _submit,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryColor,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(25),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                    elevation: 0,
                   ),
                   child: _isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text(
-                          'Simpan Kata Sandi',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Text("Konfirmasi Sandi", style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800, fontFamily: 'Poppins')),
                 ),
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPasswordField({
-    required String label,
-    required TextEditingController controller,
-    required bool obscure,
-    required VoidCallback onToggle,
-  }) {
-    return TextField(
-      controller: controller,
-      obscureText: obscure,
-      decoration: InputDecoration(
-        labelText: label,
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: BorderSide.none,
-        ),
-        suffixIcon: IconButton(
-          onPressed: onToggle,
-          icon: Icon(obscure ? Icons.visibility_off : Icons.visibility),
         ),
       ),
     );

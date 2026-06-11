@@ -16,11 +16,13 @@ class _ConfirmPinPageState extends State<ConfirmPinPage> {
   static const Color primaryColor = Color(0xFF4D55CC);
 
   final TextEditingController _confirmPinController = TextEditingController();
+  final FocusNode _confirmPinFocusNode = FocusNode();
   bool _isLoading = false;
 
   @override
   void dispose() {
     _confirmPinController.dispose();
+    _confirmPinFocusNode.dispose();
     super.dispose();
   }
 
@@ -76,9 +78,10 @@ class _ConfirmPinPageState extends State<ConfirmPinPage> {
       body: SingleChildScrollView(
         child: Column(
           children: [
+            // --- BACKGROUND BIRU MELENGKUNG ---
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.only(bottom: 64),
+              padding: const EdgeInsets.only(bottom: 60), // Memberi ruang untuk kotak PIN
               decoration: const BoxDecoration(
                 color: primaryColor,
                 borderRadius: BorderRadius.only(
@@ -93,6 +96,7 @@ class _ConfirmPinPageState extends State<ConfirmPinPage> {
                 ),
                 child: Stack(
                   children: [
+                    // Elemen Gambar Latar BGSEC
                     Positioned(
                       top: 0,
                       right: 0,
@@ -101,7 +105,7 @@ class _ConfirmPinPageState extends State<ConfirmPinPage> {
                       child: Image.asset(
                         'assets/BGSEC.jpg',
                         fit: BoxFit.cover,
-                        opacity: const AlwaysStoppedAnimation(0.78),
+                        opacity: const AlwaysStoppedAnimation(0.8),
                         errorBuilder: (context, error, stackTrace) =>
                             const SizedBox.shrink(),
                       ),
@@ -109,33 +113,97 @@ class _ConfirmPinPageState extends State<ConfirmPinPage> {
                     SafeArea(
                       bottom: false,
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(24, 88, 24, 0),
+                        padding: const EdgeInsets.fromLTRB(24, 60, 24, 0),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
                               'Konfirmasi PIN',
-                              maxLines: 1,
                               style: TextStyle(
                                 color: Colors.white,
-                                fontSize: 39,
+                                fontSize: 34,
                                 fontWeight: FontWeight.w900,
                                 fontFamily: 'Poppins',
                               ),
                             ),
-                            const SizedBox(height: 30),
+                            const SizedBox(height: 15),
                             const Text(
                               'Masukkan kembali 6 digit PIN yang baru saja Anda buat. Pastikan kombinasi angka yang dimasukkan sudah persis sama dengan sebelumnya.',
                               style: TextStyle(
                                 color: Colors.white,
-                                fontSize: 18,
-                                height: 1.42,
+                                fontSize: 14,
+                                height: 1.5,
                                 fontWeight: FontWeight.w400,
                                 fontFamily: 'Poppins',
                               ),
                             ),
-                            const SizedBox(height: 66),
-                            _buildPinBoxes(),
+                            const SizedBox(height: 40),
+
+                            // --- 6 KOTAK PIN INPUT (NATIVE KEYBOARD TRICK) ---
+                            SizedBox(
+                              height: 60,
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  // Kotak Visual (Putih)
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: List.generate(6, (index) {
+                                      String char = _confirmPinController.text.length > index
+                                          ? _confirmPinController.text[index]
+                                          : "";
+                                      return Container(
+                                        width: 45,
+                                        height: 60,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        child: Center(
+                                          child: char.isEmpty
+                                              ? Container(
+                                                  width: 16,
+                                                  height: 2.5,
+                                                  decoration: BoxDecoration(
+                                                    color: primaryColor,
+                                                    borderRadius: BorderRadius.circular(2),
+                                                  ),
+                                                )
+                                              : const Text(
+                                                  "●",
+                                                  style: TextStyle(
+                                                    fontSize: 18,
+                                                    color: primaryColor,
+                                                  ),
+                                                ),
+                                        ),
+                                      );
+                                    }),
+                                  ),
+
+                                  // TextField Asli (Transparan)
+                                  Positioned.fill(
+                                    child: TextField(
+                                      controller: _confirmPinController,
+                                      focusNode: _confirmPinFocusNode,
+                                      keyboardType: TextInputType.number,
+                                      maxLength: 6,
+                                      autofocus: true,
+                                      showCursor: false,
+                                      enableInteractiveSelection: false,
+                                      style: const TextStyle(
+                                          color: Colors.transparent, fontSize: 1),
+                                      decoration: const InputDecoration(
+                                        border: InputBorder.none,
+                                        counterText: "",
+                                        contentPadding: EdgeInsets.zero,
+                                      ),
+                                      onChanged: (val) => setState(() {}),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -144,31 +212,30 @@ class _ConfirmPinPageState extends State<ConfirmPinPage> {
                 ),
               ),
             ),
-            const SizedBox(height: 54),
+
+            const SizedBox(height: 40),
+
+            // --- TOMBOL SIMPAN PIN DI AREA PUTIH BAWAH ---
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 17),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
               child: SizedBox(
                 width: double.infinity,
-                height: 53,
+                height: 50,
                 child: ElevatedButton(
                   onPressed:
                       (_confirmPinController.text.length == 6 && !_isLoading)
-                      ? _simpanPin
-                      : null,
+                          ? _simpanPin
+                          : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryColor,
-                    disabledBackgroundColor: primaryColor.withValues(
-                      alpha: 0.45,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
+                    disabledBackgroundColor: primaryColor.withValues(alpha: 0.5),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                     elevation: 0,
                   ),
                   child: _isLoading
                       ? const SizedBox(
-                          height: 22,
-                          width: 22,
+                          height: 20,
+                          width: 20,
                           child: CircularProgressIndicator(
                             color: Colors.white,
                             strokeWidth: 2.5,
@@ -178,8 +245,8 @@ class _ConfirmPinPageState extends State<ConfirmPinPage> {
                           'Simpan PIN',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w900,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
                             fontFamily: 'Poppins',
                           ),
                         ),
@@ -188,71 +255,6 @@ class _ConfirmPinPageState extends State<ConfirmPinPage> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildPinBoxes() {
-    return SizedBox(
-      height: 76,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: List.generate(6, (index) {
-              final char = _confirmPinController.text.length > index
-                  ? _confirmPinController.text[index]
-                  : '';
-
-              return Container(
-                width: 45,
-                height: 72,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(7),
-                  boxShadow: [
-                    if (index >= 4)
-                      BoxShadow(
-                        color: Colors.white.withValues(alpha: 0.24),
-                        blurRadius: 0,
-                        spreadRadius: 4,
-                      ),
-                  ],
-                ),
-                child: Center(
-                  child: char.isEmpty
-                      ? Container(width: 18, height: 3, color: primaryColor)
-                      : Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            color: primaryColor,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                ),
-              );
-            }),
-          ),
-          Positioned.fill(
-            child: TextField(
-              controller: _confirmPinController,
-              keyboardType: TextInputType.number,
-              maxLength: 6,
-              autofocus: true,
-              showCursor: false,
-              enableInteractiveSelection: false,
-              style: const TextStyle(color: Colors.transparent, fontSize: 1),
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-                counterText: '',
-                contentPadding: EdgeInsets.zero,
-              ),
-              onChanged: (val) => setState(() {}),
-            ),
-          ),
-        ],
       ),
     );
   }

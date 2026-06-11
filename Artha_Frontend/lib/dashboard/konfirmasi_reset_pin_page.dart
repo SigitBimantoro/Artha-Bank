@@ -1,65 +1,62 @@
 import 'package:flutter/material.dart';
-import 'dart:async';
-import 'reset_password_page.dart';
+import '../services/api_service.dart';
 
-class ForgotPasswordOtpPage extends StatefulWidget {
-  final String email;
-  const ForgotPasswordOtpPage({super.key, required this.email});
+class KonfirmasiResetPinPage extends StatefulWidget {
+  final String currentPassword;
+  final String newPin;
+
+  const KonfirmasiResetPinPage({super.key, required this.currentPassword, required this.newPin});
 
   @override
-  State<ForgotPasswordOtpPage> createState() => _ForgotPasswordOtpPageState();
+  State<KonfirmasiResetPinPage> createState() => _KonfirmasiResetPinPageState();
 }
 
-class _ForgotPasswordOtpPageState extends State<ForgotPasswordOtpPage> {
-  final TextEditingController _otpController = TextEditingController();
-  final FocusNode _otpFocusNode = FocusNode();
-  
+class _KonfirmasiResetPinPageState extends State<KonfirmasiResetPinPage> {
+  final TextEditingController _pinController = TextEditingController();
+  final FocusNode _pinFocusNode = FocusNode();
+  bool _isLoading = false;
+
   static const Color primaryColor = Color(0xFF4D55CC);
-  
-  int _seconds = 59;
-  Timer? _timer;
-
-  @override
-  void initState() {
-    super.initState();
-    _startTimer();
-  }
-
-  void _startTimer() {
-    _timer?.cancel();
-    _seconds = 59;
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_seconds > 0) {
-        setState(() => _seconds--);
-      } else {
-        _timer?.cancel();
-      }
-    });
-  }
 
   @override
   void dispose() {
-    _timer?.cancel();
-    _otpController.dispose();
-    _otpFocusNode.dispose();
+    _pinController.dispose();
+    _pinFocusNode.dispose();
     super.dispose();
   }
 
-  void _verifyOtp() {
-    if (_otpController.text.trim().length == 6) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ResetPasswordPage(
-            email: widget.email,
-            otpCode: _otpController.text.trim(),
-          ),
-        ),
+  Future<void> _simpanPin() async {
+    if (_pinController.text != widget.newPin) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Konfirmasi PIN tidak cocok!"), backgroundColor: Colors.red),
       );
+      _pinController.clear();
+      setState(() {});
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    // Memanggil endpoint API
+    final res = await ApiService.changePin(
+      widget.currentPassword,
+      widget.newPin,
+      _pinController.text,
+    );
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    if (res['success'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("PIN Berhasil diubah!"), backgroundColor: Colors.green),
+      );
+      // Kembali hingga ke halaman Profile (halaman Dashboard)
+      Navigator.popUntil(context, (route) => route.isFirst);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Masukkan 6 digit OTP"), backgroundColor: Colors.red),
+        SnackBar(content: Text(res['message'] ?? 'Gagal mengubah PIN'), backgroundColor: Colors.red),
       );
+      _pinController.clear();
+      setState(() {});
     }
   }
 
@@ -89,7 +86,7 @@ class _ForgotPasswordOtpPageState extends State<ForgotPasswordOtpPage> {
                     ),
                   ),
                   const Text(
-                    "Verifikasi Email",
+                    "Konfirmasi PIN baru",
                     style: TextStyle(color: primaryColor, fontSize: 22, fontWeight: FontWeight.w800, fontFamily: 'Poppins'),
                   ),
                 ],
@@ -97,36 +94,23 @@ class _ForgotPasswordOtpPageState extends State<ForgotPasswordOtpPage> {
               const SizedBox(height: 40),
               
               // DESKRIPSI
-              RichText(
+              const Text(
+                "Masukkan PIN baru Anda di bawah ini.",
                 textAlign: TextAlign.center,
-                text: TextSpan(
-                  style: const TextStyle(color: primaryColor, fontSize: 13, fontFamily: 'Poppins', height: 1.5),
-                  children: [
-                    const TextSpan(text: "Kode OTP telah dikirimkan ke email\n"),
-                    TextSpan(text: widget.email, style: const TextStyle(fontWeight: FontWeight.w700)),
-                    const TextSpan(text: ". Pastikan juga untuk\nmemeriksa folder spam atau junk Anda."),
-                  ],
-                ),
+                style: TextStyle(color: primaryColor, fontSize: 13, fontFamily: 'Poppins'),
               ),
               const SizedBox(height: 40),
-              
-              // TIMER
-              Text(
-                '0:${_seconds.toString().padLeft(2, '0')}',
-                style: const TextStyle(color: primaryColor, fontSize: 16, fontWeight: FontWeight.w800, fontFamily: 'Poppins'),
-              ),
-              const SizedBox(height: 25),
 
-              // KOTAK OTP (Native Keyboard Trick)
+              // KOTAK PIN INPUT
               SizedBox(
-                height: 65, 
+                height: 65,
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: List.generate(6, (index) {
-                        String char = _otpController.text.length > index ? _otpController.text[index] : "";
+                        String char = _pinController.text.length > index ? _pinController.text[index] : "";
                         return Container(
                           width: 45,
                           height: 60,
@@ -145,20 +129,17 @@ class _ForgotPasswordOtpPageState extends State<ForgotPasswordOtpPage> {
                     ),
                     Positioned.fill(
                       child: TextField(
-                        controller: _otpController,
-                        focusNode: _otpFocusNode,
+                        controller: _pinController,
+                        focusNode: _pinFocusNode,
                         keyboardType: TextInputType.number,
                         maxLength: 6,
-                        autofocus: true, 
-                        showCursor: false, 
-                        enableInteractiveSelection: false, 
+                        autofocus: true,
+                        showCursor: false,
+                        enableInteractiveSelection: false,
                         style: const TextStyle(color: Colors.transparent, fontSize: 1),
                         decoration: const InputDecoration(border: InputBorder.none, counterText: "", contentPadding: EdgeInsets.zero),
                         onChanged: (val) {
                           setState(() {});
-                          if (val.length == 6) {
-                            FocusScope.of(context).unfocus();
-                          }
                         },
                       ),
                     ),
@@ -167,40 +148,21 @@ class _ForgotPasswordOtpPageState extends State<ForgotPasswordOtpPage> {
               ),
               const SizedBox(height: 40),
 
-              // TOMBOL VERIFIKASI
+              // TOMBOL SIMPAN
               SizedBox(
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: _otpController.text.length == 6 ? _verifyOtp : null,
+                  onPressed: (_pinController.text.length == 6 && !_isLoading) ? _simpanPin : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryColor,
                     disabledBackgroundColor: primaryColor.withValues(alpha: 0.5),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                     elevation: 0,
                   ),
-                  child: const Text("Verifikasi", style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800, fontFamily: 'Poppins')),
-                ),
-              ),
-              const SizedBox(height: 25),
-
-              // KIRIM ULANG
-              GestureDetector(
-                onTap: _seconds == 0 ? () {
-                  _startTimer();
-                  // Panggil API Resend disini jika diperlukan
-                } : null,
-                child: Text.rich(
-                  TextSpan(
-                    text: 'Belum menerima kode? ',
-                    style: const TextStyle(color: primaryColor, fontSize: 13, fontFamily: 'Poppins'),
-                    children: [
-                      TextSpan(
-                        text: 'Kirim ulang',
-                        style: TextStyle(fontWeight: FontWeight.w800, color: _seconds == 0 ? primaryColor : primaryColor.withValues(alpha: 0.5)),
-                      ),
-                    ],
-                  ),
+                  child: _isLoading
+                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Text("Simpan PIN", style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800, fontFamily: 'Poppins')),
                 ),
               ),
             ],

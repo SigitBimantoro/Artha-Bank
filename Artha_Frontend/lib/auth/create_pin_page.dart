@@ -12,6 +12,8 @@ class _CreatePinPageState extends State<CreatePinPage> {
   final TextEditingController _pinController = TextEditingController();
   final FocusNode _pinFocusNode = FocusNode();
 
+  static const Color primaryColor = Color(0xFF4D55CC);
+
   @override
   void dispose() {
     _pinController.dispose();
@@ -21,17 +23,18 @@ class _CreatePinPageState extends State<CreatePinPage> {
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryColor = Color(0xFF4D55CC);
+    final width = MediaQuery.sizeOf(context).width;
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       backgroundColor: Colors.white,
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // --- BACKGROUND BIRU MELENGKUNG (GAYA AUTH PAGE) ---
+            // --- BACKGROUND BIRU MELENGKUNG ---
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.only(bottom: 50),
+              padding: const EdgeInsets.only(bottom: 60), // Memberi ruang untuk kotak PIN
               decoration: const BoxDecoration(
                 color: primaryColor,
                 borderRadius: BorderRadius.only(
@@ -50,18 +53,20 @@ class _CreatePinPageState extends State<CreatePinPage> {
                     Positioned(
                       top: 0,
                       right: 0,
-                      width: MediaQuery.of(context).size.width * 0.7,
+                      width: width * 0.78,
+                      height: 330,
                       child: Image.asset(
                         'assets/BGSEC.jpg',
                         fit: BoxFit.cover,
                         opacity: const AlwaysStoppedAnimation(0.8),
-                        errorBuilder: (context, error, stackTrace) => Container(),
+                        errorBuilder: (context, error, stackTrace) =>
+                            const SizedBox.shrink(),
                       ),
                     ),
                     SafeArea(
                       bottom: false,
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+                        padding: const EdgeInsets.fromLTRB(24, 60, 24, 0),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -79,8 +84,9 @@ class _CreatePinPageState extends State<CreatePinPage> {
                               'Buat 6 digit PIN untuk mengamankan akun dan transaksi Anda. Pastikan untuk menggunakan kombinasi angka yang unik dan tidak mudah ditebak oleh orang lain.',
                               style: TextStyle(
                                 color: Colors.white,
-                                fontSize: 13,
+                                fontSize: 14,
                                 height: 1.5,
+                                fontWeight: FontWeight.w400,
                                 fontFamily: 'Poppins',
                               ),
                             ),
@@ -88,7 +94,7 @@ class _CreatePinPageState extends State<CreatePinPage> {
 
                             // --- 6 KOTAK PIN INPUT (NATIVE KEYBOARD TRICK) ---
                             SizedBox(
-                              height: 60, 
+                              height: 60,
                               child: Stack(
                                 alignment: Alignment.center,
                                 children: [
@@ -96,10 +102,12 @@ class _CreatePinPageState extends State<CreatePinPage> {
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: List.generate(6, (index) {
-                                      String char = _pinController.text.length > index ? _pinController.text[index] : "";
+                                      String char = _pinController.text.length > index
+                                          ? _pinController.text[index]
+                                          : "";
                                       return Container(
                                         width: 45,
-                                        height: 55,
+                                        height: 60,
                                         decoration: BoxDecoration(
                                           color: Colors.white,
                                           borderRadius: BorderRadius.circular(10),
@@ -107,9 +115,12 @@ class _CreatePinPageState extends State<CreatePinPage> {
                                         child: Center(
                                           child: char.isEmpty
                                               ? Container(
-                                                  width: 15,
-                                                  height: 2,
-                                                  color: primaryColor,
+                                                  width: 16,
+                                                  height: 2.5,
+                                                  decoration: BoxDecoration(
+                                                    color: primaryColor,
+                                                    borderRadius: BorderRadius.circular(2),
+                                                  ),
                                                 )
                                               : const Text(
                                                   "●",
@@ -122,7 +133,7 @@ class _CreatePinPageState extends State<CreatePinPage> {
                                       );
                                     }),
                                   ),
-                                  
+
                                   // TextField Asli (Transparan)
                                   Positioned.fill(
                                     child: TextField(
@@ -130,10 +141,11 @@ class _CreatePinPageState extends State<CreatePinPage> {
                                       focusNode: _pinFocusNode,
                                       keyboardType: TextInputType.number,
                                       maxLength: 6,
-                                      autofocus: true, 
-                                      showCursor: false, 
-                                      enableInteractiveSelection: false, 
-                                      style: const TextStyle(color: Colors.transparent, fontSize: 1),
+                                      autofocus: true,
+                                      showCursor: false,
+                                      enableInteractiveSelection: false,
+                                      style: const TextStyle(
+                                          color: Colors.transparent, fontSize: 1),
                                       decoration: const InputDecoration(
                                         border: InputBorder.none,
                                         counterText: "",
@@ -153,7 +165,7 @@ class _CreatePinPageState extends State<CreatePinPage> {
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 40),
 
             // --- TOMBOL LANJUTKAN DI AREA PUTIH BAWAH ---
@@ -175,14 +187,15 @@ class _CreatePinPageState extends State<CreatePinPage> {
                       : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryColor,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                    disabledBackgroundColor: primaryColor.withValues(alpha: 0.5),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                     elevation: 0,
                   ),
                   child: const Text(
                     "Lanjutkan",
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 15,
+                      fontSize: 16,
                       fontWeight: FontWeight.w800,
                       fontFamily: 'Poppins',
                     ),
