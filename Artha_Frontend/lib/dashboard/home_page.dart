@@ -5,7 +5,7 @@ import '../pembayaran/topup_page.dart';
 import '../tracking/detail_analisis_page.dart';
 import '../transfer/transfer_page.dart';
 import 'riwayat_page.dart';
-import '../services/api_service.dart'; // <-- Import API Service
+import '../services/api_service.dart';
 
 // --- MODEL DATA UNTUK GRAFIK DINAMIS ---
 class ChartData {
@@ -25,7 +25,6 @@ class _HomePageState extends State<HomePage> {
   bool _isBalanceVisible = false;
   bool _isLoading = true;
 
-  // Variabel untuk menampung data dari Backend
   String _namaUser = "Memuat...";
   double _saldo = 0;
   List<dynamic> _recentTransactions = [];
@@ -36,26 +35,20 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    _loadHomeData(); // Panggil fungsi saat halaman dibuka
+    _loadHomeData();
   }
 
-  // --- LOGIKA MENGAMBIL DATA API ---
   Future<void> _loadHomeData() async {
     try {
-      // 1. Ambil Nama & Saldo
       final profileRes = await ApiService.getProfile();
       if (profileRes['success'] && profileRes['data'] != null) {
         final userData = profileRes['data']['data'];
         setState(() {
-          // Ambil kata pertama dari nama lengkap
           _namaUser = (userData['nama'] ?? 'User').split(' ')[0];
-          _saldo = (userData['saldo'] ?? 0)
-              .toDouble(); // Pastikan backend sudah kirim 'saldo'
+          _saldo = (userData['saldo'] ?? 0).toDouble();
         });
       }
 
-      // 2. Ambil 3 Riwayat Transaksi Terakhir (Asumsi di ApiService ada fungsi getHistory)
-      // Jika error karena ApiService.getHistory belum dibuat, silakan buat di api_service.dart
       final historyRes = await ApiService.getHistory(limit: 3);
       if (historyRes['success'] && historyRes['data'] != null) {
         setState(() {
@@ -63,7 +56,6 @@ class _HomePageState extends State<HomePage> {
         });
       }
 
-      // 3. Ambil Statistik Pengeluaran (Mingguan)
       final trackingRes = await ApiService.getTrackingKeuangan('weekly');
       if (trackingRes['success'] && trackingRes['data'] != null) {
         final pieData = trackingRes['data']['pie_chart'];
@@ -87,7 +79,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // Helper Format Rupiah (1.000.000)
   String _formatRupiah(double value) {
     return value
         .toStringAsFixed(0)
@@ -103,31 +94,55 @@ class _HomePageState extends State<HomePage> {
           ? const Center(child: CircularProgressIndicator(color: primaryColor))
           : SingleChildScrollView(
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24.0,
-                  vertical: 20.0,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // --- Sapaan ---
-                    Text(
-                      'Hai, $_namaUser', // Dinamis dari API
-                      style: const TextStyle(
-                        color: primaryColor,
-                        fontSize: 24,
-                        fontFamily: 'Poppins',
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Yuk, cek pengeluaranmu hari ini biar rencana besarmu tetap terjaga.',
-                      style: TextStyle(
-                        color: primaryColor,
-                        fontSize: 14,
-                        fontFamily: 'Poppins',
-                      ),
+                    // --- HEADER: Sapaan & Ikon Riwayat ---
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Hai, $_namaUser',
+                              style: const TextStyle(
+                                color: primaryColor,
+                                fontSize: 24,
+                                fontFamily: 'Poppins',
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              'Selamat datang kembali.',
+                              style: TextStyle(
+                                color: primaryColor,
+                                fontSize: 13,
+                                fontFamily: 'Poppins',
+                              ),
+                            ),
+                          ],
+                        ),
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const RiwayatPage()),
+                            ).then((_) => _loadHomeData());
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: const BoxDecoration(
+                              color: primaryColor,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.history, color: Colors.white, size: 24),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 30),
 
@@ -155,7 +170,7 @@ class _HomePageState extends State<HomePage> {
                           Text(
                             _isBalanceVisible
                                 ? "Rp ${_formatRupiah(_saldo)}"
-                                : "********", // Dinamis dari API
+                                : "********",
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 38,
@@ -165,13 +180,9 @@ class _HomePageState extends State<HomePage> {
                           ),
                           const SizedBox(height: 10),
                           GestureDetector(
-                            onTap: () => setState(
-                              () => _isBalanceVisible = !_isBalanceVisible,
-                            ),
+                            onTap: () => setState(() => _isBalanceVisible = !_isBalanceVisible),
                             child: Icon(
-                              _isBalanceVisible
-                                  ? Icons.visibility
-                                  : Icons.visibility_off,
+                              _isBalanceVisible ? Icons.visibility : Icons.visibility_off,
                               color: Colors.white,
                               size: 24,
                             ),
@@ -184,52 +195,27 @@ class _HomePageState extends State<HomePage> {
                     // --- BAGIAN TRANSAKSI ---
                     const Text(
                       'Transaksi',
-                      style: TextStyle(
-                        color: primaryColor,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w900,
-                        fontFamily: 'Poppins',
-                      ),
+                      style: TextStyle(color: primaryColor, fontSize: 15, fontWeight: FontWeight.w900, fontFamily: 'Poppins'),
                     ),
                     const SizedBox(height: 12),
 
                     // TOMBOL TOP UP
                     GestureDetector(
                       onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const TopUpPage(),
-                          ),
-                        ).then((value) {
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => const TopUpPage())).then((value) {
                           if (value == true && mounted) _loadHomeData();
                         });
                       },
                       child: Container(
                         width: double.infinity,
                         height: 80,
-                        decoration: BoxDecoration(
-                          color: primaryColor,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
+                        decoration: BoxDecoration(color: primaryColor, borderRadius: BorderRadius.circular(16)),
                         child: const Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(
-                              Icons.add_circle_outline,
-                              color: Colors.white,
-                              size: 26,
-                            ),
+                            Icon(Icons.add_circle_outline, color: Colors.white, size: 26),
                             SizedBox(height: 8),
-                            Text(
-                              'Top up',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 13,
-                                fontFamily: 'Poppins',
-                              ),
-                            ),
+                            Text('Top up', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13, fontFamily: 'Poppins')),
                           ],
                         ),
                       ),
@@ -244,12 +230,7 @@ class _HomePageState extends State<HomePage> {
                             icon: Icons.credit_card,
                             label: "Pembayaran",
                             onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const PembayaranPage(),
-                                ),
-                              ).then((_) => _loadHomeData());
+                              Navigator.push(context, MaterialPageRoute(builder: (context) => const PembayaranPage())).then((_) => _loadHomeData());
                             },
                           ),
                         ),
@@ -259,12 +240,7 @@ class _HomePageState extends State<HomePage> {
                             icon: Icons.payments_outlined,
                             label: "Transfer",
                             onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const TransferPage(),
-                                ),
-                              ).then((_) => _loadHomeData());
+                              Navigator.push(context, MaterialPageRoute(builder: (context) => const TransferPage())).then((_) => _loadHomeData());
                             },
                           ),
                         ),
@@ -272,43 +248,13 @@ class _HomePageState extends State<HomePage> {
                     ),
                     const SizedBox(height: 25),
 
-                    // --- TRANSAKSI TERAKHIR (DINAMIS DARI API) ---
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Transaksi Terakhir',
-                          style: TextStyle(
-                            color: primaryColor,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w900,
-                            fontFamily: 'Poppins',
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const RiwayatPage(),
-                              ),
-                            ).then((_) => _loadHomeData());
-                          },
-                          child: const Text(
-                            'Lihat Detail',
-                            style: TextStyle(
-                              color: primaryColor,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                              fontFamily: 'Poppins',
-                            ),
-                          ),
-                        ),
-                      ],
+                    // --- TRANSAKSI TERAKHIR ---
+                    const Text(
+                      'Transaksi Terakhir',
+                      style: TextStyle(color: primaryColor, fontSize: 15, fontWeight: FontWeight.w900, fontFamily: 'Poppins'),
                     ),
                     const SizedBox(height: 12),
 
-                    // Render Riwayat Transaksi
                     if (_recentTransactions.isEmpty)
                       Container(
                         width: double.infinity,
@@ -317,97 +263,49 @@ class _HomePageState extends State<HomePage> {
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: primaryColor.withValues(alpha: 0.12),
-                          ),
+                          border: Border.all(color: primaryColor.withValues(alpha: 0.12)),
                         ),
                         child: Column(
                           children: [
-                            Icon(
-                              Icons.receipt_long,
-                              size: 34,
-                              color: primaryColor.withValues(alpha: 0.35),
-                            ),
+                            Icon(Icons.receipt_long, size: 34, color: primaryColor.withValues(alpha: 0.35)),
                             const SizedBox(height: 12),
-                            Text(
-                              "Belum ada transaksi",
-                              style: TextStyle(
-                                color: primaryColor.withValues(alpha: 0.6),
-                                fontFamily: 'Poppins',
-                              ),
-                            ),
+                            Text("Belum ada transaksi", style: TextStyle(color: primaryColor.withValues(alpha: 0.6), fontFamily: 'Poppins')),
                           ],
                         ),
                       )
                     else
-                      ..._recentTransactions.map((trx) {
-                        return _renderTransactionItemDinamis(trx);
-                      }),
+                      ..._recentTransactions.map((trx) => _renderTransactionItemDinamis(trx)),
 
                     const SizedBox(height: 25),
 
                     // --- STATISTIK PENGELUARAN ---
                     const Text(
                       'Statistik Pengeluaran',
-                      style: TextStyle(
-                        color: primaryColor,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w900,
-                        fontFamily: 'Poppins',
-                      ),
+                      style: TextStyle(color: primaryColor, fontSize: 15, fontWeight: FontWeight.w900, fontFamily: 'Poppins'),
                     ),
                     const SizedBox(height: 12),
 
                     Container(
                       padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: primaryColor,
-                        borderRadius: BorderRadius.circular(25),
-                      ),
+                      decoration: BoxDecoration(color: primaryColor, borderRadius: BorderRadius.circular(25)),
                       child: Column(
                         children: [
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text(
-                                "Tracking Keuangan",
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
-                                  fontSize: 13,
-                                  fontFamily: 'Poppins',
-                                ),
-                              ),
+                              const Text("Tracking Keuangan", style: TextStyle(fontWeight: FontWeight.w700, color: Colors.white, fontSize: 13, fontFamily: 'Poppins')),
                               Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: const Text(
-                                  "Minggu ini",
-                                  style: TextStyle(
-                                    color: primaryColor,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                    fontFamily: 'Poppins',
-                                  ),
-                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+                                child: const Text("Minggu ini", style: TextStyle(color: primaryColor, fontSize: 12, fontWeight: FontWeight.w700, fontFamily: 'Poppins')),
                               ),
                             ],
                           ),
                           const SizedBox(height: 20),
-
                           Container(
                             width: double.infinity,
                             padding: const EdgeInsets.symmetric(vertical: 35),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
+                            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
                             child: Center(
                               child: Stack(
                                 alignment: Alignment.center,
@@ -415,66 +313,33 @@ class _HomePageState extends State<HomePage> {
                                   SizedBox(
                                     width: 140,
                                     height: 140,
-                                    child: CustomPaint(
-                                      painter: DynamicDoughnutPainter(
-                                        dataList: dataPengeluaran,
-                                      ),
-                                    ),
+                                    child: CustomPaint(painter: DynamicDoughnutPainter(dataList: dataPengeluaran)),
                                   ),
                                   Text(
                                     _totalPengeluaran >= 1000000
                                         ? "Rp ${(_totalPengeluaran / 1000000).toStringAsFixed(1)} jt"
                                         : "Rp ${_formatRupiah(_totalPengeluaran)}",
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w900,
-                                      color: primaryColor,
-                                      fontFamily: 'Poppins',
-                                    ),
+                                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: primaryColor, fontFamily: 'Poppins'),
                                   ),
                                 ],
                               ),
                             ),
                           ),
                           const SizedBox(height: 15),
-
                           GestureDetector(
                             onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      const DetailAnalisisPage(
-                                        period: 'weekly',
-                                      ),
-                                ),
-                              );
+                              Navigator.push(context, MaterialPageRoute(builder: (context) => const DetailAnalisisPage(period: 'weekly')));
                             },
                             child: Container(
                               width: double.infinity,
                               padding: const EdgeInsets.symmetric(vertical: 12),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(20),
-                              ),
+                              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
                               child: const Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Text(
-                                    "Lihat Detail analisis",
-                                    style: TextStyle(
-                                      color: primaryColor,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 13,
-                                      fontFamily: 'Poppins',
-                                    ),
-                                  ),
+                                  Text("Lihat Detail analisis", style: TextStyle(color: primaryColor, fontWeight: FontWeight.w700, fontSize: 13, fontFamily: 'Poppins')),
                                   SizedBox(width: 5),
-                                  Icon(
-                                    Icons.arrow_forward_ios,
-                                    color: primaryColor,
-                                    size: 12,
-                                  ),
+                                  Icon(Icons.arrow_forward_ios, color: primaryColor, size: 12),
                                 ],
                               ),
                             ),
@@ -482,7 +347,7 @@ class _HomePageState extends State<HomePage> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 50), // Ruang ekstra di bawah
+                    const SizedBox(height: 50),
                   ],
                 ),
               ),
@@ -490,7 +355,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // --- WIDGET HELPER: PENGUBAH DATA API MENJADI UI LIST TRANSAKSI ---
   Widget _renderTransactionItemDinamis(dynamic trx) {
     final String type = (trx['transaction_type'] ?? '').toString().toUpperCase();
     final String mutasi = (trx['mutasi'] ?? '').toString().toUpperCase();
@@ -498,62 +362,49 @@ class _HomePageState extends State<HomePage> {
     final String notes = (trx['notes'] ?? '').toString();
     final String date = (trx['tanggal'] ?? '').toString();
 
-    // Default tampilan
     String title = "Transaksi";
     Color iconBgColor = const Color(0xFF0090FF);
     IconData icon = Icons.receipt_long;
-    String amountText =
-        "${mutasi == "MASUK" ? "+" : "-"}Rp ${_formatRupiah(amount)}";
+    String amountText = "${mutasi == "MASUK" ? "+" : "-"}Rp ${_formatRupiah(amount)}.00";
 
-    // Logika Pemilihan Ikon & Warna sesuai API Backend-mu
     if (type == "TOPUP") {
-      title = "Isi Saldo";
-      iconBgColor = const Color(0xFF16C45E); // Hijau
+      title = "Isi saldo";
+      iconBgColor = const Color(0xFF19D65F);
       icon = Icons.arrow_downward;
-      amountText = "+Rp ${_formatRupiah(amount)}";
+      amountText = "+Rp ${_formatRupiah(amount)}.00";
     } else if (type == "TRANSFER") {
       if (mutasi == "KELUAR") {
         title = "Kirim ke Bank";
-        iconBgColor = const Color(0xFF0090FF); // Biru
+        iconBgColor = const Color(0xFF168BEA);
         icon = Icons.north_east;
-        amountText = "-Rp ${_formatRupiah(amount)}";
+        amountText = "-Rp ${_formatRupiah(amount)}.00";
       } else {
         title = "Uang Masuk";
-        iconBgColor = const Color(0xFF16C45E); // Hijau
+        iconBgColor = const Color(0xFF19D65F);
         icon = Icons.call_received;
-        amountText = "+Rp ${_formatRupiah(amount)}";
+        amountText = "+Rp ${_formatRupiah(amount)}.00";
       }
     } else if (type == "PULSA" || type == "PLN" || type == "QRIS") {
       title = "Pembayaran";
-      iconBgColor = const Color(0xFFFF4848); // Merah
+      iconBgColor = const Color(0xFFFF333F);
       icon = Icons.arrow_upward;
-      amountText = "-Rp ${_formatRupiah(amount)}";
+      amountText = "-Rp ${_formatRupiah(amount)}.00";
     } else if (type == "SAVING_IN") {
       title = "Saldo ke Wishlist";
-      iconBgColor = const Color(0xFFF5A623); // Oren
+      iconBgColor = const Color(0xFFFF8A24);
       icon = Icons.swap_horiz;
       amountText = "Rp ${_formatRupiah(amount)}";
     } else if (type == "SAVING_OUT") {
       title = "Uang Masuk";
-      iconBgColor = const Color(0xFF16C45E); // Hijau
+      iconBgColor = const Color(0xFF19D65F);
       icon = Icons.call_received;
-      amountText = "+Rp ${_formatRupiah(amount)}";
+      amountText = "+Rp ${_formatRupiah(amount)}.00";
     }
 
-    // Hindari notes kepanjangan yang bikin layout rusak
-    final shortNotes = notes.length > 25
-        ? "${notes.substring(0, 25)}..."
-        : notes;
+    final shortNotes = notes.length > 25 ? "${notes.substring(0, 25)}..." : notes;
     final subtitle = shortNotes.isEmpty ? _subtitleForType(type) : shortNotes;
 
-    return _buildTransactionItem(
-      title,
-      subtitle,
-      date,
-      amountText,
-      iconBgColor,
-      icon,
-    );
+    return _buildTransactionItem(title, subtitle, date, amountText, iconBgColor, icon);
   }
 
   String _subtitleForType(String type) {
@@ -566,53 +417,29 @@ class _HomePageState extends State<HomePage> {
     return '-';
   }
 
-  // Helper Widget Button
-  Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
+  Widget _buildActionButton({required IconData icon, required String label, required VoidCallback onTap}) {
     const Color primaryColor = Color(0xFF4D55CC);
     return GestureDetector(
       onTap: onTap,
       child: Container(
         height: 80,
-        decoration: BoxDecoration(
-          color: primaryColor,
-          borderRadius: BorderRadius.circular(16),
-        ),
+        decoration: BoxDecoration(color: primaryColor, borderRadius: BorderRadius.circular(16)),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, color: Colors.white, size: 26),
             const SizedBox(height: 8),
-            Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
-                fontFamily: 'Poppins',
-              ),
-            ),
+            Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13, fontFamily: 'Poppins')),
           ],
         ),
       ),
     );
   }
 
-  // Template Asli Card Riwayat Transaksi
-  Widget _buildTransactionItem(
-    String title,
-    String sub,
-    String date,
-    String amount,
-    Color iconBgColor,
-    IconData icon,
-  ) {
+  Widget _buildTransactionItem(String title, String sub, String date, String amount, Color iconBgColor, IconData icon) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
         color: const Color(0xFF4D55CC),
         borderRadius: BorderRadius.circular(20),
@@ -622,68 +449,30 @@ class _HomePageState extends State<HomePage> {
           Container(
             width: 44,
             height: 44,
-            decoration: BoxDecoration(
-              color: iconBgColor,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: Colors.white, size: 27),
+            decoration: BoxDecoration(color: iconBgColor, shape: BoxShape.circle),
+            child: Icon(icon, color: Colors.white, size: 24),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 14,
-                    fontFamily: 'Poppins',
-                  ),
-                ),
+                Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14, fontFamily: 'Poppins')),
                 const SizedBox(height: 2),
-                Text(
-                  sub,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 10,
-                    fontFamily: 'Poppins',
-                    height: 1.2,
-                  ),
-                ),
-                Text(
-                  date,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 9,
-                    fontFamily: 'Poppins',
-                    height: 1.2,
-                  ),
-                ),
+                Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 11, fontFamily: 'Poppins', fontWeight: FontWeight.w500)),
+                Text(date, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 11, fontFamily: 'Poppins', fontWeight: FontWeight.w500)),
               ],
             ),
           ),
           const SizedBox(width: 10),
           ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 106),
+            constraints: const BoxConstraints(maxWidth: 110),
             child: Text(
               amount,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.right,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w900,
-                fontSize: 13,
-                fontFamily: 'Poppins',
-              ),
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14, fontFamily: 'Poppins'),
             ),
           ),
         ],
@@ -692,9 +481,6 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-// ============================================================================
-// CUSTOM PAINTER (TIDAK DIUBAH SAMA SEKALI)
-// ============================================================================
 class DynamicDoughnutPainter extends CustomPainter {
   final List<ChartData> dataList;
   DynamicDoughnutPainter({required this.dataList});
@@ -722,14 +508,7 @@ class DynamicDoughnutPainter extends CustomPainter {
       if (actualSweep <= 0) actualSweep = 0.001;
 
       paint.color = item.color;
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
-        startAngle + (gapAngle / 2),
-        actualSweep,
-        false,
-        paint,
-      );
-
+      canvas.drawArc(Rect.fromCircle(center: center, radius: radius), startAngle + (gapAngle / 2), actualSweep, false, paint);
       startAngle += sweepAngle;
     }
   }

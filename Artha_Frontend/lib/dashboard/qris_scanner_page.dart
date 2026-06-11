@@ -10,11 +10,35 @@ class QRISScannerPage extends StatefulWidget {
   State<QRISScannerPage> createState() => _QRISScannerPageState();
 }
 
-class _QRISScannerPageState extends State<QRISScannerPage> {
+class _QRISScannerPageState extends State<QRISScannerPage>
+    with SingleTickerProviderStateMixin {
   static const Color primaryColor = Color(0xFF4D55CC);
 
   final MobileScannerController _controller = MobileScannerController();
   bool _isHandlingScan = false;
+
+  // Variabel untuk animasi
+  late AnimationController _animationController;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Inisialisasi controller animasi (durasi 2 detik, bolak-balik)
+    _animationController = AnimationController(
+      duration: const Duration(seconds: 2),
+      vsync: this,
+    )..repeat(reverse: true);
+
+    // Mengatur pergerakan dari atas (-1.0) ke bawah (1.0)
+    _animation = Tween<double>(begin: -1.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeInOut,
+      ),
+    );
+  }
 
   void _handleDetect(BarcodeCapture capture) {
     if (_isHandlingScan) return;
@@ -42,6 +66,7 @@ class _QRISScannerPageState extends State<QRISScannerPage> {
 
   @override
   void dispose() {
+    _animationController.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -51,7 +76,8 @@ class _QRISScannerPageState extends State<QRISScannerPage> {
     final mediaQuery = MediaQuery.of(context);
     final screenWidth = mediaQuery.size.width;
 
-    final frameSize = (screenWidth * 0.78).clamp(250.0, 344.0);
+    // Memastikan ukuran frame kotak scan proporsional
+    final frameSize = (screenWidth * 0.75).clamp(250.0, 320.0);
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -61,6 +87,7 @@ class _QRISScannerPageState extends State<QRISScannerPage> {
           Expanded(
             child: Stack(
               children: [
+                // 1. Kamera Scanner (Paling Bawah)
                 Positioned.fill(
                   child: MobileScanner(
                     controller: _controller,
@@ -68,109 +95,140 @@ class _QRISScannerPageState extends State<QRISScannerPage> {
                   ),
                 ),
 
-                Positioned.fill(
-                  child: Container(color: Colors.black.withValues(alpha: 0.55)),
-                ),
-
+                // 2. UI Elements & Overlay di atas Kamera
                 Positioned.fill(
                   child: SafeArea(
                     top: false,
                     child: LayoutBuilder(
                       builder: (context, constraints) {
-                        final bottomInset = mediaQuery.padding.bottom;
-                        final promptBottom = bottomInset + 18;
-                        final promptFontSize = screenWidth < 390 ? 18.0 : 21.0;
+                        // Menghitung posisi kotak frame agar presisi
+                        final frameTop = constraints.maxHeight * 0.25;
+                        final frameLeft = (constraints.maxWidth - frameSize) / 2;
+                        
+                        // Menentukan area kotak (lubang transparan)
+                        final holeRect = Rect.fromLTWH(
+                            frameLeft, frameTop, frameSize, frameSize);
 
                         return Stack(
                           children: [
+                            // Overlay Gelap dengan Lubang Transparan di Tengah
+                            Positioned.fill(
+                              child: CustomPaint(
+                                painter: _OverlayPainter(holeRect),
+                              ),
+                            ),
+
+                            // Teks "Scan" dan Logo QRIS
                             Positioned(
-                              top: constraints.maxHeight * 0.17,
+                              top: constraints.maxHeight * 0.15,
                               left: 0,
                               right: 0,
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
                                   const Text(
                                     'Scan',
                                     style: TextStyle(
                                       color: Colors.white,
-                                      fontSize: 23,
-                                      fontWeight: FontWeight.w900,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w700,
                                       fontFamily: 'Poppins',
                                     ),
                                   ),
-                                  const SizedBox(width: 14),
-
-                                  // Ganti path ini sesuai lokasi asset kamu
+                                  const SizedBox(width: 8),
                                   Image.asset(
                                     'assets/scanqris.png',
-                                    width: 130,
-                                    height: 45,
+                                    height: 26,
                                     fit: BoxFit.contain,
                                   ),
                                 ],
                               ),
                             ),
 
+                            // Kotak Frame Scan dengan Animasi Laser
                             Positioned(
-                              top: constraints.maxHeight * 0.31,
-                              left: 0,
-                              right: 0,
-                              child: Center(
-                                child: SizedBox(
-                                  width: frameSize,
-                                  height: frameSize,
-                                  child: CustomPaint(
-                                    painter: _ScanFramePainter(primaryColor),
-                                    child: Center(
-                                      child: Container(
-                                        width: frameSize,
-                                        height: frameSize * 0.32,
-                                        decoration: BoxDecoration(
-                                          gradient: LinearGradient(
-                                            begin: Alignment.topCenter,
-                                            end: Alignment.bottomCenter,
-                                            colors: [
-                                              primaryColor.withValues(
-                                                alpha: 0.55,
+                              top: frameTop,
+                              left: frameLeft,
+                              child: SizedBox(
+                                width: frameSize,
+                                height: frameSize,
+                                child: Stack(
+                                  children: [
+                                    // Animasi Gradient & Laser
+                                    ClipRect(
+                                      child: AnimatedBuilder(
+                                        animation: _animation,
+                                        builder: (context, child) {
+                                          return Align(
+                                            alignment:
+                                                Alignment(0, _animation.value),
+                                            child: child,
+                                          );
+                                        },
+                                        child: Container(
+                                          width: frameSize,
+                                          height: frameSize * 0.45,
+                                          decoration: BoxDecoration(
+                                            border: const Border(
+                                              top: BorderSide(
+                                                color: primaryColor,
+                                                width: 3.0,
                                               ),
-                                              primaryColor.withValues(
-                                                alpha: 0.12,
-                                              ),
-                                              Colors.transparent,
-                                            ],
+                                            ),
+                                            gradient: LinearGradient(
+                                              begin: Alignment.topCenter,
+                                              end: Alignment.bottomCenter,
+                                              colors: [
+                                                primaryColor.withValues(
+                                                    alpha: 0.6),
+                                                primaryColor.withValues(
+                                                    alpha: 0.1),
+                                                Colors.transparent,
+                                              ],
+                                              stops: const [0.0, 0.6, 1.0],
+                                            ),
                                           ),
                                         ),
                                       ),
                                     ),
-                                  ),
+
+                                    // Frame Sudut Kustom
+                                    Positioned.fill(
+                                      child: CustomPaint(
+                                        painter:
+                                            _ScanFramePainter(primaryColor),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
 
+                            // Label Instruksi Bawah
                             Positioned(
-                              left: 32,
-                              right: 32,
-                              bottom: promptBottom,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 14,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(32),
-                                ),
-                                child: Text(
-                                  'Posisikan kode QRIS di dalam kotak',
-                                  textAlign: TextAlign.center,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: primaryColor,
-                                    fontSize: promptFontSize,
-                                    fontWeight: FontWeight.w900,
-                                    fontFamily: 'Poppins',
+                              left: 0,
+                              right: 0,
+                              bottom: constraints.maxHeight * 0.15,
+                              child: Center(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 12,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(30),
+                                  ),
+                                  child: const Text(
+                                    'Posisikan kode QRIS di dalam kotak',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: primaryColor,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                      fontFamily: 'Poppins',
+                                    ),
                                   ),
                                 ),
                               ),
@@ -196,14 +254,14 @@ class _QRISScannerPageState extends State<QRISScannerPage> {
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(44, 38, 24, 30),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: Row(
             children: [
               GestureDetector(
                 onTap: () => Navigator.pop(context),
                 child: Container(
-                  width: 56,
-                  height: 56,
+                  width: 42,
+                  height: 42,
                   decoration: const BoxDecoration(
                     color: Colors.white,
                     shape: BoxShape.circle,
@@ -211,11 +269,11 @@ class _QRISScannerPageState extends State<QRISScannerPage> {
                   child: const Icon(
                     Icons.arrow_back,
                     color: primaryColor,
-                    size: 31,
+                    size: 24,
                   ),
                 ),
               ),
-              const SizedBox(width: 36),
+              const SizedBox(width: 20),
               const Expanded(
                 child: Text(
                   'Pindai QRIS',
@@ -223,8 +281,8 @@ class _QRISScannerPageState extends State<QRISScannerPage> {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 36,
-                    fontWeight: FontWeight.w900,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
                     fontFamily: 'Poppins',
                   ),
                 ),
@@ -237,6 +295,37 @@ class _QRISScannerPageState extends State<QRISScannerPage> {
   }
 }
 
+// Painter baru untuk membuat overlay gelap dengan lubang transparan di tengah
+class _OverlayPainter extends CustomPainter {
+  final Rect holeRect;
+
+  _OverlayPainter(this.holeRect);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.75) // Warna gelap overlay
+      ..style = PaintingStyle.fill;
+
+    // Path yang menutupi seluruh layar
+    final bgPath = Path()
+      ..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
+      
+    // Path untuk area yang dilubangi (kotak scan)
+    final holePath = Path()..addRect(holeRect);
+
+    // Mengurangi bgPath dengan holePath agar tengahnya bolong
+    final path = Path.combine(PathOperation.difference, bgPath, holePath);
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _OverlayPainter oldDelegate) {
+    return oldDelegate.holeRect != holeRect;
+  }
+}
+
 class _ScanFramePainter extends CustomPainter {
   final Color color;
 
@@ -246,15 +335,17 @@ class _ScanFramePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
       ..color = color
-      ..strokeWidth = 5
+      ..strokeWidth = 4
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.square;
 
-    const corner = 38.0;
+    const corner = 32.0;
 
+    // Sudut Kiri Atas
     canvas.drawLine(Offset.zero, const Offset(corner, 0), paint);
     canvas.drawLine(Offset.zero, const Offset(0, corner), paint);
 
+    // Sudut Kanan Atas
     canvas.drawLine(
       Offset(size.width, 0),
       Offset(size.width - corner, 0),
@@ -262,6 +353,7 @@ class _ScanFramePainter extends CustomPainter {
     );
     canvas.drawLine(Offset(size.width, 0), Offset(size.width, corner), paint);
 
+    // Sudut Kiri Bawah
     canvas.drawLine(Offset(0, size.height), Offset(corner, size.height), paint);
     canvas.drawLine(
       Offset(0, size.height),
@@ -269,6 +361,7 @@ class _ScanFramePainter extends CustomPainter {
       paint,
     );
 
+    // Sudut Kanan Bawah
     canvas.drawLine(
       Offset(size.width, size.height),
       Offset(size.width - corner, size.height),

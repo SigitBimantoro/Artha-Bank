@@ -13,6 +13,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   final TextEditingController _emailController = TextEditingController();
   bool _isLoading = false;
 
+  static const Color primaryColor = Color(0xFF4D55CC);
+
   Future<void> _sendOtp() async {
     if (_emailController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -23,7 +25,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
     setState(() => _isLoading = true);
     
-    // Pemanggilan API Request Lupa Password
     final res = await ApiService.requestForgotPassword(
       email: _emailController.text.trim(),
     );    
@@ -48,50 +49,89 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryColor = Color(0xFF4D55CC);
-
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
+              // HEADER
+              Stack(
+                alignment: Alignment.center,
                 children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: const BoxDecoration(color: primaryColor, shape: BoxShape.circle),
-                      child: const Icon(Icons.arrow_back, color: Colors.white, size: 22),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: const BoxDecoration(
+                          color: primaryColor, 
+                          shape: BoxShape.circle
+                        ),
+                        child: const Icon(Icons.arrow_back, color: Colors.white, size: 22),
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 20),
                   const Text(
-                    "Lupa Kata Sandi",
-                    style: TextStyle(color: primaryColor, fontSize: 22, fontWeight: FontWeight.w900, fontFamily: 'Poppins'),
+                    "Lupa kata sandi",
+                    style: TextStyle(
+                      color: primaryColor, 
+                      fontSize: 22, 
+                      fontWeight: FontWeight.w800, 
+                      fontFamily: 'Poppins'
+                    ),
                   ),
                 ],
               ),
               const SizedBox(height: 40),
-              const Text(
-                "Masukkan email yang terdaftar. Kami akan mengirimkan kode OTP untuk mengatur ulang kata sandi Anda.",
-                style: TextStyle(color: primaryColor, fontSize: 14, fontFamily: 'Poppins', height: 1.5),
+              
+              // DESKRIPSI
+              Center(
+                child: RichText(
+                  textAlign: TextAlign.center,
+                  text: const TextSpan(
+                    style: TextStyle(
+                      color: primaryColor, 
+                      fontSize: 13, 
+                      fontFamily: 'Poppins', 
+                      height: 1.5,
+                      fontWeight: FontWeight.w400,
+                    ),
+                    children: [
+                      TextSpan(text: "Masukkan "),
+                      TextSpan(text: "email terdaftar", style: TextStyle(fontWeight: FontWeight.w700)),
+                      TextSpan(text: " Anda di bawah ini.\nKami akan mengirimkan kode verifikasi untuk\nmengatur ulang kata sandi."),
+                    ],
+                  ),
+                ),
               ),
-              const SizedBox(height: 30),
+              const SizedBox(height: 40),
+
+              // INPUT EMAIL
+              const Text(
+                "Email",
+                style: TextStyle(
+                  color: primaryColor, 
+                  fontSize: 13, 
+                  fontWeight: FontWeight.w700, 
+                  fontFamily: 'Poppins'
+                ),
+              ),
+              const SizedBox(height: 8),
               TextFormField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
-                style: const TextStyle(fontSize: 14, fontFamily: 'Poppins'),
+                style: const TextStyle(fontSize: 14, fontFamily: 'Poppins', color: primaryColor),
                 decoration: InputDecoration(
-                  hintText: "Masukkan email Anda",
-                  hintStyle: TextStyle(color: primaryColor.withOpacity(0.5)),
+                  hintText: "Masukkan Email terdaftar",
+                  hintStyle: TextStyle(color: primaryColor.withValues(alpha: 0.5), fontSize: 13),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(25),
-                    borderSide: const BorderSide(color: primaryColor, width: 1.5),
+                    borderSide: const BorderSide(color: primaryColor, width: 1.2),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(25),
@@ -100,9 +140,11 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 ),
               ),
               const SizedBox(height: 40),
+
+              // TOMBOL KIRIM KODE
               SizedBox(
                 width: double.infinity,
-                height: 55,
+                height: 50,
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _sendOtp,
                   style: ElevatedButton.styleFrom(
@@ -111,8 +153,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     elevation: 0,
                   ),
                   child: _isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text("Kirim OTP", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800, fontFamily: 'Poppins')),
+                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Text("Kirim Kode", style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800, fontFamily: 'Poppins')),
                 ),
               ),
             ],

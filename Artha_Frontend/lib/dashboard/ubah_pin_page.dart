@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-
-import '../auth/create_pin_page.dart';
-import '../services/api_service.dart';
+import 'reset_pin_page.dart';
 
 class UbahPinPage extends StatefulWidget {
   const UbahPinPage({super.key});
@@ -11,197 +9,125 @@ class UbahPinPage extends StatefulWidget {
 }
 
 class _UbahPinPageState extends State<UbahPinPage> {
-  static const Color primaryColor = Color(0xFF4D55CC);
-
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController =
-      TextEditingController();
+  bool _obscureText = true;
 
-  bool _hidePassword = true;
-  bool _hideConfirm = true;
-  bool _isLoading = false;
+  static const Color primaryColor = Color(0xFF4D55CC);
 
   @override
   void dispose() {
     _passwordController.dispose();
-    _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  Future<void> _lanjutkan() async {
-    final password = _passwordController.text.trim();
-    final confirm = _confirmPasswordController.text.trim();
-
-    if (password.isEmpty || confirm.isEmpty) {
+  void _lanjutkan() {
+    if (_passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Password wajib diisi.'),
-          backgroundColor: Colors.red,
-        ),
+        const SnackBar(content: Text("Masukkan kata sandi Anda"), backgroundColor: Colors.red),
       );
       return;
     }
-
-    if (password != confirm) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Konfirmasi password tidak cocok.'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
-    final res = await ApiService.verifyPassword(password);
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-
-    if (res['success'] == true) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const CreatePinPage()),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(res['message'] ?? 'Password tidak valid.'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
+    // Lanjut ke halaman masukkan PIN baru dengan membawa password
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ResetPinPage(currentPassword: _passwordController.text),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF9F9F9),
+      backgroundColor: Colors.white,
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Row(
+              // HEADER
+              Stack(
+                alignment: Alignment.center,
                 children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: const BoxDecoration(
-                        color: primaryColor,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.arrow_back,
-                        color: Colors.white,
-                        size: 20,
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: const BoxDecoration(color: primaryColor, shape: BoxShape.circle),
+                        child: const Icon(Icons.arrow_back, color: Colors.white, size: 22),
                       ),
                     ),
                   ),
-                  const Expanded(
-                    child: Center(
-                      child: Text(
-                        'Atur Ulang PIN',
-                        style: TextStyle(
-                          color: primaryColor,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          fontFamily: 'Poppins',
-                        ),
-                      ),
-                    ),
+                  const Text(
+                    "Verifikasi Sandi",
+                    style: TextStyle(color: primaryColor, fontSize: 22, fontWeight: FontWeight.w800, fontFamily: 'Poppins'),
                   ),
-                  const SizedBox(width: 40),
                 ],
               ),
-              const SizedBox(height: 42),
+              const SizedBox(height: 40),
+              
+              // DESKRIPSI
               const Text(
-                'Masukkan password akun Anda untuk memverifikasi perubahan PIN.',
-                style: TextStyle(
-                  color: primaryColor,
-                  fontSize: 13,
-                  fontFamily: 'Poppins',
-                  height: 1.4,
-                ),
+                "Masukkan kata sandi akun Anda untuk melanjutkan perubahan PIN.",
+                textAlign: TextAlign.center,
+                style: TextStyle(color: primaryColor, fontSize: 13, fontFamily: 'Poppins'),
               ),
-              const SizedBox(height: 24),
-              _buildPasswordField(
-                label: 'Password Akun',
-                controller: _passwordController,
-                obscure: _hidePassword,
-                onToggle: () => setState(() => _hidePassword = !_hidePassword),
+              const SizedBox(height: 40),
+
+              // INPUT PASSWORD
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Kata sandi saat ini",
+                    style: TextStyle(color: primaryColor, fontSize: 13, fontWeight: FontWeight.w700, fontFamily: 'Poppins'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _passwordController,
+                    obscureText: _obscureText,
+                    style: const TextStyle(fontSize: 14, fontFamily: 'Poppins', color: primaryColor),
+                    decoration: InputDecoration(
+                      hintText: "Masukkan kata sandi",
+                      hintStyle: TextStyle(color: primaryColor.withValues(alpha: 0.5), fontSize: 13),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                      suffixIcon: IconButton(
+                        icon: Icon(_obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined, color: primaryColor),
+                        onPressed: () => setState(() => _obscureText = !_obscureText),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(25),
+                        borderSide: const BorderSide(color: primaryColor, width: 1.2),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(25),
+                        borderSide: const BorderSide(color: primaryColor, width: 2),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 18),
-              _buildPasswordField(
-                label: 'Konfirmasi Password',
-                controller: _confirmPasswordController,
-                obscure: _hideConfirm,
-                onToggle: () => setState(() => _hideConfirm = !_hideConfirm),
-              ),
-              const Spacer(),
+              const SizedBox(height: 40),
+
+              // TOMBOL LANJUTKAN
               SizedBox(
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: _isLoading ? null : _lanjutkan,
+                  onPressed: _lanjutkan,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryColor,
-                    disabledBackgroundColor: primaryColor.withValues(
-                      alpha: 0.4,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(25),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                     elevation: 0,
                   ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : const Text(
-                          'Lanjutkan',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                            fontFamily: 'Poppins',
-                          ),
-                        ),
+                  child: const Text("Lanjutkan", style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800, fontFamily: 'Poppins')),
                 ),
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPasswordField({
-    required String label,
-    required TextEditingController controller,
-    required bool obscure,
-    required VoidCallback onToggle,
-  }) {
-    return TextField(
-      controller: controller,
-      obscureText: obscure,
-      decoration: InputDecoration(
-        labelText: label,
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: BorderSide.none,
-        ),
-        suffixIcon: IconButton(
-          onPressed: onToggle,
-          icon: Icon(obscure ? Icons.visibility_off : Icons.visibility),
         ),
       ),
     );
